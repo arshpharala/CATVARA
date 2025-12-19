@@ -77,10 +77,52 @@ return new class extends Migration
                 'company_location_unique'
             );
         });
+
+        Schema::create('company_inventory_settings', function (Blueprint $table) {
+            $table->id();
+
+            // company_id FK (short name)
+            $table->foreignId('company_id');
+            $table->boolean('allow_negative_stock')->default(false);
+            $table->boolean('block_sale_if_no_stock')->default(true);
+
+            $table->boolean('require_transfer_approval')->default(true);
+            $table->boolean('auto_receive_transfer')->default(false);
+            $table->boolean('allow_partial_transfer_receive')->default(true);
+
+            // default inventory location
+            $table->foreignId('default_inventory_location_id')->nullable();
+
+            $table->timestamps();
+
+            $table->unique('company_id', 'company_inventory_unique');
+        });
+
+        /**
+         * ADD FKs SEPARATELY WITH SHORT NAMES
+         */
+        Schema::table('company_inventory_settings', function (Blueprint $table) {
+
+            $table->foreign('company_id', 'cis_company_fk')
+                ->references('id')
+                ->on('companies')
+                ->cascadeOnDelete();
+
+            $table->foreign('default_inventory_location_id', 'cis_default_loc_fk')
+                ->references('id')
+                ->on('inventory_locations')
+                ->nullOnDelete();
+        });
     }
 
     public function down(): void
     {
+        Schema::table('company_inventory_settings', function (Blueprint $table) {
+            $table->dropForeign('cis_company_fk');
+            $table->dropForeign('cis_default_loc_fk');
+        });
+
+        Schema::dropIfExists('company_inventory_settings');
         Schema::dropIfExists('inventory_locations');
         Schema::dropIfExists('warehouses');
         Schema::dropIfExists('stores');
