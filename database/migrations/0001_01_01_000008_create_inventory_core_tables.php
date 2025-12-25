@@ -9,25 +9,33 @@ return new class extends Migration
     public function up(): void
     {
         /**
+         * INVENTORY TRANSFER STATUSES
+         */
+        Schema::create('inventory_transfer_statuses', function (Blueprint $table) {
+            $table->id();
+            $table->string('code')->unique();   // DRAFT, APPROVED, SHIPPED, RECEIVED, CLOSED, CANCELLED
+            $table->string('name');
+            $table->boolean('is_final')->default(false);
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        /**
          * INVENTORY REASONS
-         * Master list of why stock changed (audit + reporting)
          */
         Schema::create('inventory_reasons', function (Blueprint $table) {
             $table->id();
-
-            $table->string('name');                // Sale, Transfer, Adjustment
-            $table->string('code')->unique();      // SALE, TRANSFER_OUT, ADJUSTMENT_IN
-            $table->boolean('is_increase');        // true => +qty, false => -qty (default direction)
+            $table->string('name');
+            $table->string('code')->unique();
+            $table->boolean('is_increase');
             $table->boolean('is_active')->default(true);
-
             $table->timestamps();
             $table->softDeletes();
         });
 
         /**
          * INVENTORY BALANCES
-         * Cache table for fast reads. Source of truth is MOVEMENTS.
-         * Unique per (company, location, variant).
          */
         Schema::create('inventory_balances', function (Blueprint $table) {
             $table->id();
@@ -45,9 +53,7 @@ return new class extends Migration
                 ->constrained('product_variants')
                 ->cascadeOnDelete();
 
-            // Use DECIMAL for enterprise flexibility (pieces now, weight later)
             $table->decimal('quantity', 18, 6)->default(0);
-
             $table->timestamp('last_movement_at')->nullable();
             $table->timestamps();
 
@@ -55,14 +61,10 @@ return new class extends Migration
                 ['company_id', 'inventory_location_id', 'product_variant_id'],
                 'inv_bal_unique'
             );
-
-            $table->index(['company_id', 'inventory_location_id'], 'inv_bal_company_loc_idx');
-            $table->index(['company_id', 'product_variant_id'], 'inv_bal_company_var_idx');
         });
 
         /**
          * INVENTORY MOVEMENTS (LEDGER)
-         * Append-only. Never update/delete. Correct via reversing movements.
          */
         Schema::create('inventory_movements', function (Blueprint $table) {
             $table->id();
@@ -84,41 +86,31 @@ return new class extends Migration
                 ->constrained('inventory_reasons')
                 ->restrictOnDelete();
 
-            // Signed quantity: + adds stock, - reduces stock
             $table->decimal('quantity', 18, 6);
-
-            // Optional: cost snapshot later (not pricing; just valuation if you add it)
             $table->decimal('unit_cost', 18, 6)->nullable();
 
-            // Reference to business object (Order, POS Sale, Transfer, Adjustment, Purchase)
-            $table->string('reference_type')->nullable(); // e.g. App\Models\Sales\Order
+            $table->string('reference_type')->nullable();
             $table->unsignedBigInteger('reference_id')->nullable();
 
-            // Idempotency: prevents duplicates on retries (very important)
             $table->string('idempotency_key')->nullable();
 
-            // Who performed this movement (nullable for system jobs/import)
-            $table->foreignId('performed_by')->nullable()
+            $table->foreignId('performed_by')
+                ->nullable()
                 ->constrained('users')
                 ->nullOnDelete();
 
-            // Business time vs system time
             $table->timestamp('occurred_at')->useCurrent();
             $table->timestamp('posted_at')->useCurrent();
+            $table->timestamps();
 
-            $table->timestamps(); // created_at = insert time; keep for dev ergonomics
-
-            $table->index(['company_id', 'inventory_location_id'], 'inv_mov_company_loc_idx');
-            $table->index(['company_id', 'product_variant_id'], 'inv_mov_company_var_idx');
-            $table->index(['company_id', 'inventory_reason_id'], 'inv_mov_company_reason_idx');
-
-            // Keep short to avoid 64-char limit with ec_ prefix
-            $table->unique(['company_id', 'idempotency_key'], 'inv_mov_idem_unique');
+            $table->unique(
+                ['company_id', 'idempotency_key'],
+                'inv_mov_idem_unique'
+            );
         });
 
         /**
          * INVENTORY TRANSFERS (BUSINESS DOCUMENT)
-         * One transfer produces movements when shipped/received depending on workflow.
          */
         Schema::create('inventory_transfers', function (Blueprint $table) {
             $table->id();
@@ -136,18 +128,19 @@ return new class extends Migration
                 ->constrained('inventory_locations')
                 ->restrictOnDelete();
 
-            // DRAFT -> APPROVED -> SHIPPED -> RECEIVED -> CANCELLED
-            $table->string('status')->default('DRAFT');
+            // ✅ NORMALIZED STATUS
+            $table->unsignedBigInteger('status_id');
 
-            $table->string('transfer_no')->nullable(); // optional numbering later
-
+            $table->string('transfer_no')->nullable();
             $table->text('notes')->nullable();
 
-            $table->foreignId('created_by')->nullable()
+            $table->foreignId('created_by')
+                ->nullable()
                 ->constrained('users')
                 ->nullOnDelete();
 
-            $table->foreignId('approved_by')->nullable()
+            $table->foreignId('approved_by')
+                ->nullable()
                 ->constrained('users')
                 ->nullOnDelete();
 
@@ -156,10 +149,9 @@ return new class extends Migration
             $table->timestamp('received_at')->nullable();
 
             $table->timestamps();
+            $table->softDeletes();
 
-            $table->index(['company_id', 'status'], 'inv_tr_company_status_idx');
-            $table->index(['company_id', 'from_location_id'], 'inv_tr_company_from_idx');
-            $table->index(['company_id', 'to_location_id'], 'inv_tr_company_to_idx');
+            $table->index(['company_id', 'status_id'], 'inv_tr_comp_status_idx');
         });
 
         /**
@@ -181,16 +173,34 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique(['inventory_transfer_id', 'product_variant_id'], 'inv_tr_item_unique');
+            $table->unique(
+                ['inventory_transfer_id', 'product_variant_id'],
+                'inv_tr_item_unique'
+            );
+        });
+
+        /**
+         * FOREIGN KEY FOR TRANSFER STATUS
+         */
+        Schema::table('inventory_transfers', function (Blueprint $table) {
+            $table->foreign('status_id', 'inv_tr_status_fk')
+                ->references('id')
+                ->on('inventory_transfer_statuses')
+                ->restrictOnDelete();
         });
     }
 
     public function down(): void
     {
+        Schema::table('inventory_transfers', function (Blueprint $table) {
+            $table->dropForeign('inv_tr_status_fk');
+        });
+
         Schema::dropIfExists('inventory_transfer_items');
         Schema::dropIfExists('inventory_transfers');
         Schema::dropIfExists('inventory_movements');
         Schema::dropIfExists('inventory_balances');
         Schema::dropIfExists('inventory_reasons');
+        Schema::dropIfExists('inventory_transfer_statuses');
     }
 };

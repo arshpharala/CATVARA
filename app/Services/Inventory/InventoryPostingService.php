@@ -13,44 +13,42 @@ use App\Models\Inventory\InventoryReason;
 class InventoryPostingService
 {
     /**
-     * Post a single inventory movement safely.
-     *
-     * @param array $data
-     * Required keys:
-     * - company_id
-     * - inventory_location_id
-     * - product_variant_id
-     * - reason_code
-     * - quantity (positive number)
-     *
-     * Optional:
-     * - reference_type
-     * - reference_id
-     * - performed_by
-     * - idempotency_key
-     * - occurred_at
-     * - allow_negative (bool)
+     * Get available stock for a variant at a specific inventory location
+     */
+    public function getAvailableStock(
+        int $companyId,
+        int $inventoryLocationId,
+        int $productVariantId
+    ): float {
+        return (float) InventoryBalance::where('company_id', $companyId)
+            ->where('inventory_location_id', $inventoryLocationId)
+            ->where('product_variant_id', $productVariantId)
+            ->value('quantity') ?? 0;
+    }
+
+    /**
+     * Post a single inventory movement safely (LEDGER + BALANCE).
      */
     public function postMovement(array $data): InventoryMovement
     {
         return DB::transaction(function () use ($data) {
 
             /**
-             * 1️⃣ Resolve reason
+             * 1️⃣ Resolve inventory reason
              */
             $reason = InventoryReason::where('code', $data['reason_code'])
                 ->where('is_active', true)
                 ->firstOrFail();
 
             /**
-             * 2️⃣ Signed quantity based on reason
+             * 2️⃣ Determine signed quantity
              */
             $signedQty = $reason->is_increase
                 ? abs($data['quantity'])
                 : -abs($data['quantity']);
 
             /**
-             * 3️⃣ Idempotency check (IMPORTANT)
+             * 3️⃣ Idempotency check (SAFE RETRY)
              */
             if (!empty($data['idempotency_key'])) {
                 $existing = InventoryMovement::where('company_id', $data['company_id'])
@@ -58,12 +56,12 @@ class InventoryPostingService
                     ->first();
 
                 if ($existing) {
-                    return $existing; // safe retry
+                    return $existing;
                 }
             }
 
             /**
-             * 4️⃣ Lock or create balance row
+             * 4️⃣ Lock or create inventory balance
              */
             $balance = InventoryBalance::where('company_id', $data['company_id'])
                 ->where('inventory_location_id', $data['inventory_location_id'])
@@ -82,19 +80,18 @@ class InventoryPostingService
             }
 
             /**
-             * 5️⃣ Negative stock protection
+             * 5️⃣ Negative stock enforcement (FINAL AUTHORITY)
              */
-            $newQty = bcadd($balance->quantity, $signedQty, 6);
+            $newQty = bcadd((string) $balance->quantity, (string) $signedQty, 6);
 
-            if (
-                empty($data['allow_negative']) &&
-                bccomp($newQty, '0', 6) === -1
-            ) {
+            $allowNegative = (bool) ($data['allow_negative'] ?? false);
+
+            if (!$allowNegative && bccomp($newQty, '0', 6) === -1) {
                 throw new \RuntimeException('Insufficient stock for this operation.');
             }
 
             /**
-             * 6️⃣ Create movement (LEDGER)
+             * 6️⃣ Create inventory movement (LEDGER)
              */
             $movement = InventoryMovement::create([
                 'uuid' => Str::uuid(),
@@ -124,7 +121,7 @@ class InventoryPostingService
     }
 
     /**
-     * Post inventory transfer (two movements).
+     * Post inventory transfer (OUT + IN movements)
      */
     public function postTransfer(array $data): void
     {
@@ -136,7 +133,7 @@ class InventoryPostingService
          * - product_variant_id
          * - quantity
          * - performed_by
-         * - transfer_id (reference)
+         * - transfer_id
          */
 
         // OUT
@@ -150,6 +147,7 @@ class InventoryPostingService
             'reference_id' => $data['transfer_id'],
             'performed_by' => $data['performed_by'],
             'idempotency_key' => "transfer:{$data['transfer_id']}:out:{$data['product_variant_id']}",
+            'allow_negative' => false,
         ]);
 
         // IN
@@ -163,6 +161,7 @@ class InventoryPostingService
             'reference_id' => $data['transfer_id'],
             'performed_by' => $data['performed_by'],
             'idempotency_key' => "transfer:{$data['transfer_id']}:in:{$data['product_variant_id']}",
+            'allow_negative' => true,
         ]);
     }
 }

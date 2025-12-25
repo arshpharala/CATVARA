@@ -12,7 +12,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('company_statuses', function (Blueprint $table) {
-            $table->engine = 'InnoDB';
 
             $table->id();
             $table->string('name');              // Active, Suspended, Closed
@@ -24,7 +23,6 @@ return new class extends Migration
         });
 
         Schema::create('companies', function (Blueprint $table) {
-            $table->engine = 'InnoDB';
 
             $table->id();
             $table->uuid('uuid')->unique();
@@ -47,7 +45,6 @@ return new class extends Migration
         });
 
         Schema::create('company_details', function (Blueprint $table) {
-            $table->engine = 'InnoDB';
 
             $table->id();
             $table->unsignedBigInteger('company_id');
@@ -71,6 +68,37 @@ return new class extends Migration
                 ->on(config('database.connections.mysql.prefix') . 'companies')
                 ->cascadeOnDelete();
         });
+
+        Schema::create('document_sequences', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('company_id');
+
+            // POS_ORDER, WEB_ORDER, INVOICE, CREDIT_NOTE, QUOTE
+            $table->string('document_type');
+
+            // Optional: POS / WEB / B2B
+            $table->string('channel')->nullable();
+
+            // Prefix you define (POS-, INV-, CN-, etc)
+            $table->string('prefix');
+
+            // Optional postfix (e.g. /2025)
+            $table->string('postfix')->nullable();
+
+            // Last used number
+            $table->unsignedBigInteger('current_number')->default(0);
+
+            // Optional year-based reset
+            $table->unsignedSmallInteger('year')->nullable();
+
+            $table->timestamps();
+
+            $table->unique(
+                ['company_id', 'document_type', 'channel', 'year'],
+                'doc_seq_unique'
+            );
+        });
     }
 
     /**
@@ -83,7 +111,7 @@ return new class extends Migration
         Schema::dropIfExists('company_details');
         Schema::dropIfExists('companies');
         Schema::dropIfExists('company_statuses');
-
+        Schema::dropIfExists('document_sequences');
         Schema::enableForeignKeyConstraints();
     }
 };

@@ -11,7 +11,7 @@ class InventoryTransfer extends Model
         'company_id',
         'from_location_id',
         'to_location_id',
-        'status',
+        'status_id',
         'transfer_no',
         'notes',
         'created_by',
@@ -50,5 +50,10 @@ class InventoryTransfer extends Model
     public function approver()
     {
         return $this->belongsTo(\App\Models\User::class, 'approved_by');
+    }
+
+    public function status()
+    {
+        return $this->belongsTo(InventoryTransferStatus::class, 'status_id');
     }
 }

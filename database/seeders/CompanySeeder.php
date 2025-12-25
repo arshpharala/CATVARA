@@ -13,6 +13,10 @@ use App\Models\Company\Company;
 use App\Models\Company\CompanyDetail;
 use App\Models\Company\CompanyStatus;
 
+// ✅ PAYMENT TERMS
+use App\Models\Accounting\PaymentTerm;
+use App\Models\Accounting\CompanyPaymentTerm;
+
 class CompanySeeder extends Seeder
 {
     public function run(): void
@@ -24,6 +28,25 @@ class CompanySeeder extends Seeder
             ['code' => 'ACTIVE'],
             ['name' => 'Active', 'is_active' => true]
         );
+
+        /**
+         * PAYMENT TERMS (MASTER)
+         * Safe to run multiple times
+         */
+        $paymentTerms = [
+            ['code' => 'IMMEDIATE', 'name' => 'Immediate Payment', 'due_days' => 0],
+            ['code' => 'NET_7',     'name' => 'Net 7 Days',        'due_days' => 7],
+            ['code' => 'NET_15',    'name' => 'Net 15 Days',       'due_days' => 15],
+            ['code' => 'NET_30',    'name' => 'Net 30 Days',       'due_days' => 30],
+            ['code' => 'NET_60',    'name' => 'Net 60 Days',       'due_days' => 60],
+        ];
+
+        foreach ($paymentTerms as $term) {
+            PaymentTerm::updateOrCreate(
+                ['code' => $term['code']],
+                array_merge($term, ['is_active' => true])
+            );
+        }
 
         /**
          * FULL COMPANY DEFINITION
@@ -49,6 +72,9 @@ class CompanySeeder extends Seeder
                     'manager' => 'Manager',
                     'staff'   => 'Staff',
                 ],
+
+                // 🔹 DEFAULT PAYMENT TERM FOR COMPANY
+                'default_payment_term' => 'NET_30',
 
                 'users' => [
                     [
@@ -86,6 +112,8 @@ class CompanySeeder extends Seeder
                     'manager' => 'Manager',
                     'staff'   => 'Staff',
                 ],
+
+                'default_payment_term' => 'IMMEDIATE',
 
                 'users' => [
                     [
@@ -132,6 +160,23 @@ class CompanySeeder extends Seeder
             );
 
             /**
+             * COMPANY PAYMENT TERMS
+             */
+            $defaultTerm = PaymentTerm::where('code', $entry['default_payment_term'])->firstOrFail();
+
+            PaymentTerm::all()->each(function (PaymentTerm $term) use ($company, $defaultTerm) {
+                CompanyPaymentTerm::updateOrCreate(
+                    [
+                        'company_id' => $company->id,
+                        'payment_term_id' => $term->id,
+                    ],
+                    [
+                        'is_default' => $term->id === $defaultTerm->id,
+                    ]
+                );
+            });
+
+            /**
              * ROLES
              */
             $roleMap = [];
@@ -165,7 +210,6 @@ class CompanySeeder extends Seeder
                     ]
                 );
 
-                // Attach user to company
                 DB::table('company_user')->updateOrInsert(
                     [
                         'company_id' => $company->id,
@@ -178,7 +222,6 @@ class CompanySeeder extends Seeder
                     ]
                 );
 
-                // Assign role
                 DB::table('company_user_role')->updateOrInsert(
                     [
                         'company_id' => $company->id,

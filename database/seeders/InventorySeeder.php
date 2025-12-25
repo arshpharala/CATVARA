@@ -2,15 +2,19 @@
 
 namespace Database\Seeders;
 
-use App\Models\Company\Company;
 use Illuminate\Database\Seeder;
+use App\Models\Company\Company;
 use App\Models\Inventory\InventoryReason;
 use App\Models\Inventory\CompanyInventorySetting;
+use App\Models\Inventory\InventoryTransferStatus;
 
 class InventorySeeder extends Seeder
 {
     public function run(): void
     {
+        /**
+         * 1️⃣ INVENTORY REASONS
+         */
         $reasons = [
             // Sales
             ['code' => 'SALE', 'name' => 'Sale', 'is_increase' => false],
@@ -23,10 +27,10 @@ class InventorySeeder extends Seeder
             ['code' => 'ADJUSTMENT_OUT', 'name' => 'Adjustment Out', 'is_increase' => false],
             ['code' => 'ADJUSTMENT_IN', 'name' => 'Adjustment In', 'is_increase' => true],
 
-            // Purchase / Receiving (future)
+            // Purchase / Receiving
             ['code' => 'PURCHASE_IN', 'name' => 'Purchase / Receiving', 'is_increase' => true],
 
-            // Returns (future)
+            // Returns
             ['code' => 'RETURN_IN', 'name' => 'Customer Return', 'is_increase' => true],
             ['code' => 'RETURN_OUT', 'name' => 'Supplier Return', 'is_increase' => false],
         ];
@@ -42,8 +46,33 @@ class InventorySeeder extends Seeder
             );
         }
 
+        /**
+         * 2️⃣ INVENTORY TRANSFER STATUSES
+         */
+        $transferStatuses = [
+            ['code' => 'DRAFT',     'name' => 'Draft',              'is_final' => false],
+            ['code' => 'APPROVED',  'name' => 'Approved',           'is_final' => false],
+            ['code' => 'SHIPPED',   'name' => 'Shipped',            'is_final' => false],
+            ['code' => 'RECEIVED',  'name' => 'Partially Received', 'is_final' => false],
+            ['code' => 'CLOSED',    'name' => 'Closed',             'is_final' => true],
+            ['code' => 'CANCELLED', 'name' => 'Cancelled',          'is_final' => true],
+        ];
 
-        Company::all()->each(function ($company) {
+        foreach ($transferStatuses as $status) {
+            InventoryTransferStatus::updateOrCreate(
+                ['code' => $status['code']],
+                [
+                    'name' => $status['name'],
+                    'is_final' => $status['is_final'],
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        /**
+         * 3️⃣ COMPANY INVENTORY SETTINGS
+         */
+        Company::all()->each(function (Company $company) {
             CompanyInventorySetting::updateOrCreate(
                 ['company_id' => $company->id],
                 [

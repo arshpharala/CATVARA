@@ -23,6 +23,10 @@ class DatabaseSeeder extends Seeder
             CatalogSeeder::class,
             InventoryLocationSeeder::class,
             InventorySeeder::class,
+            PricingSeeder::class,
+            PosSeeder::class,
+            InvoiceSeeder::class,
+
 
         ]);
     }
