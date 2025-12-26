@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('pos_order_statuses', function (Blueprint $table) {
             $table->id();
             $table->string('code')->unique();     // DRAFT, COMPLETED, CANCELLED
-            $table->string('name');               // Draft, Completed, Cancelled
+            $table->string('name');
             $table->boolean('is_final')->default(false);
             $table->boolean('is_active')->default(true);
             $table->timestamps();
@@ -32,10 +32,22 @@ return new class extends Migration
             $table->unsignedBigInteger('user_id'); // cashier
             $table->unsignedBigInteger('status_id');
 
+            $table->unsignedBigInteger('customer_id')->nullable();
+
             $table->string('order_number')->unique();
 
             // Currency snapshot
             $table->unsignedBigInteger('currency_id');
+
+            /**
+             * PAYMENT TERM SNAPSHOT (for invoice consistency)
+             */
+            $table->unsignedBigInteger('payment_term_id')->nullable();
+            $table->string('payment_term_code')->nullable();  // NET_30, COD, etc
+            $table->string('payment_term_name')->nullable();  // Net 30, Cash On Delivery
+            $table->unsignedInteger('payment_due_days')->default(0);
+            $table->timestamp('due_date')->nullable();
+            $table->boolean('is_credit_sale')->default(false);
 
             // Amount snapshots
             $table->decimal('subtotal', 18, 6)->default(0);
@@ -53,6 +65,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['company_id', 'status_id'], 'pos_company_status_idx');
+            $table->index(['company_id', 'customer_id'], 'pos_company_customer_idx');
         });
 
         /**
@@ -64,31 +77,14 @@ return new class extends Migration
             $table->unsignedBigInteger('pos_order_id');
             $table->unsignedBigInteger('product_variant_id');
 
-            // Price snapshot
             $table->decimal('unit_price', 18, 6);
             $table->integer('quantity');
             $table->decimal('line_total', 18, 6);
-
-            // Tax snapshot per line
             $table->decimal('tax_amount', 18, 6)->default(0);
 
             $table->timestamps();
         });
 
-        /**
-         * POS PAYMENTS
-         */
-        Schema::create('pos_payments', function (Blueprint $table) {
-            $table->id();
-
-            $table->unsignedBigInteger('pos_order_id');
-
-            $table->string('method'); // CASH, CARD, UPI, CREDIT
-            $table->decimal('amount', 18, 6);
-            $table->string('reference')->nullable();
-
-            $table->timestamps();
-        });
 
         /**
          * FOREIGN KEYS (SHORT, PREFIX-SAFE)
@@ -114,6 +110,11 @@ return new class extends Migration
             $table->foreign('status_id', 'pos_status_fk')
                 ->references('id')->on('pos_order_statuses')
                 ->restrictOnDelete();
+
+            // Payment term FK (short)
+            $table->foreign('payment_term_id', 'pos_pt_fk')
+                ->references('id')->on('payment_terms')
+                ->nullOnDelete();
         });
 
         Schema::table('pos_order_items', function (Blueprint $table) {
@@ -126,21 +127,10 @@ return new class extends Migration
                 ->references('id')->on('product_variants')
                 ->restrictOnDelete();
         });
-
-        Schema::table('pos_payments', function (Blueprint $table) {
-
-            $table->foreign('pos_order_id', 'pp_order_fk')
-                ->references('id')->on('pos_orders')
-                ->cascadeOnDelete();
-        });
     }
 
     public function down(): void
     {
-        Schema::table('pos_payments', function (Blueprint $table) {
-            $table->dropForeign('pp_order_fk');
-        });
-
         Schema::table('pos_order_items', function (Blueprint $table) {
             $table->dropForeign('poi_order_fk');
             $table->dropForeign('poi_variant_fk');
@@ -152,9 +142,9 @@ return new class extends Migration
             $table->dropForeign('pos_user_fk');
             $table->dropForeign('pos_currency_fk');
             $table->dropForeign('pos_status_fk');
+            $table->dropForeign('pos_pt_fk');
         });
 
-        Schema::dropIfExists('pos_payments');
         Schema::dropIfExists('pos_order_items');
         Schema::dropIfExists('pos_orders');
         Schema::dropIfExists('pos_order_statuses');

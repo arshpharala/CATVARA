@@ -3,6 +3,7 @@
 namespace App\Models\Returns;
 
 use App\Models\Returns\CreditNoteItem;
+use App\Models\Accounting\Payment;
 use Illuminate\Database\Eloquent\Model;
 
 class CreditNote extends Model
@@ -43,5 +44,14 @@ class CreditNote extends Model
     public function creditable()
     {
         return $this->morphTo();
+    }
+
+    /**
+     * Unified refunds (OUT payments)
+     */
+    public function refunds()
+    {
+        return $this->morphMany(Payment::class, 'payable')
+            ->where('direction', 'OUT');
     }
 }

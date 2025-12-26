@@ -13,8 +13,8 @@ return new class extends Migration
          */
         Schema::create('web_order_statuses', function (Blueprint $table) {
             $table->id();
-            $table->string('code')->unique();     // DRAFT, PENDING_PAYMENT, PAID, CANCELLED, FULFILLED
-            $table->string('name');               // Draft, Pending Payment, Paid
+            $table->string('code')->unique();
+            $table->string('name');
             $table->boolean('is_final')->default(false);
             $table->boolean('is_active')->default(true);
             $table->timestamps();
@@ -32,8 +32,17 @@ return new class extends Migration
             $table->unsignedBigInteger('status_id');
 
             $table->string('order_number')->unique();
-
             $table->unsignedBigInteger('currency_id');
+
+            /**
+             * PAYMENT TERM SNAPSHOT
+             */
+            $table->unsignedBigInteger('payment_term_id')->nullable();
+            $table->string('payment_term_code')->nullable();
+            $table->string('payment_term_name')->nullable();
+            $table->unsignedInteger('payment_due_days')->default(0);
+            $table->timestamp('due_date')->nullable();
+            $table->boolean('is_credit_sale')->default(false);
 
             $table->decimal('subtotal', 18, 6)->default(0);
             $table->decimal('tax_total', 18, 6)->default(0);
@@ -57,7 +66,6 @@ return new class extends Migration
             $table->unsignedBigInteger('web_order_id');
             $table->unsignedBigInteger('product_variant_id');
 
-            // Snapshot fields
             $table->string('product_name');
             $table->string('variant_description')->nullable();
 
@@ -92,23 +100,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        /**
-         * WEB PAYMENTS
-         */
-        Schema::create('web_payments', function (Blueprint $table) {
-            $table->id();
-
-            $table->unsignedBigInteger('web_order_id');
-
-            $table->string('method'); // stripe, paypal, cod
-            $table->string('status'); // initiated, success, failed
-            $table->decimal('amount', 18, 6);
-
-            $table->string('gateway_reference')->nullable();
-            $table->json('gateway_payload')->nullable();
-
-            $table->timestamps();
-        });
 
         /**
          * FOREIGN KEYS (SHORT & SAFE)
@@ -129,6 +120,10 @@ return new class extends Migration
             $table->foreign('currency_id', 'web_currency_fk')
                 ->references('id')->on('currencies')
                 ->restrictOnDelete();
+
+            $table->foreign('payment_term_id', 'web_pt_fk')
+                ->references('id')->on('payment_terms')
+                ->nullOnDelete();
         });
 
         Schema::table('web_order_items', function (Blueprint $table) {
@@ -146,17 +141,10 @@ return new class extends Migration
                 ->references('id')->on('web_orders')
                 ->cascadeOnDelete();
         });
-
-        Schema::table('web_payments', function (Blueprint $table) {
-            $table->foreign('web_order_id', 'web_pay_order_fk')
-                ->references('id')->on('web_orders')
-                ->cascadeOnDelete();
-        });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('web_payments');
         Schema::dropIfExists('web_order_addresses');
         Schema::dropIfExists('web_order_items');
         Schema::dropIfExists('web_orders');

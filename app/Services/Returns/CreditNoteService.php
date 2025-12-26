@@ -12,12 +12,14 @@ use App\Models\Returns\CreditNoteItem;
 
 use App\Services\Inventory\InventoryPostingService;
 use App\Services\Common\DocumentNumberService;
+use App\Services\Accounting\PaymentService;
 
 class CreditNoteService
 {
     public function __construct(
         protected InventoryPostingService $inventoryPostingService,
-        protected DocumentNumberService $documentNumberService
+        protected DocumentNumberService $documentNumberService,
+        protected PaymentService $paymentService
     ) {}
 
     public function createDraft(array $data): CreditNote
@@ -53,7 +55,6 @@ class CreditNoteService
         }
 
         $qty = (int) $item['quantity'];
-
         if ($qty <= 0) {
             throw new \RuntimeException('Quantity must be greater than zero.');
         }
@@ -77,6 +78,9 @@ class CreditNoteService
         );
     }
 
+    /**
+     * Issue Credit Note (inventory impact only)
+     */
     public function issue(CreditNote $note): CreditNote
     {
         if ($note->status !== 'DRAFT') {
@@ -91,14 +95,17 @@ class CreditNoteService
                 throw new \RuntimeException('Credit note must have at least one item.');
             }
 
-            $subtotal = $note->items->sum('line_total');
-            $taxTotal = $note->items->sum('tax_amount');
+            $subtotal   = $note->items->sum('line_total');
+            $taxTotal   = $note->items->sum('tax_amount');
             $grandTotal = bcadd(
                 bcadd((string) $subtotal, (string) $taxTotal, 6),
                 (string) $note->shipping_refund,
                 6
             );
 
+            /**
+             * INVENTORY RETURN
+             */
             foreach ($note->items as $item) {
                 $this->inventoryPostingService->postMovement([
                     'company_id' => $note->company_id,
@@ -123,6 +130,37 @@ class CreditNoteService
 
             return $note;
         });
+    }
+
+    /**
+     * Refund money against credit note (OUT payment)
+     * Allocation is OPTIONAL and done separately.
+     */
+    public function refund(CreditNote $note, array $refund)
+    {
+        if ($note->status !== 'ISSUED') {
+            throw new \RuntimeException('Refund allowed only for issued credit notes.');
+        }
+
+        return $this->paymentService->create([
+            'company_id' => $note->company_id,
+            'method_code' => $refund['method_code'],
+            'amount' => $refund['amount'],
+
+            'payment_currency_id' => $refund['payment_currency_id'] ?? $note->currency_id,
+            'exchange_rate' => $refund['exchange_rate'] ?? '1.00000000',
+
+            'direction' => 'OUT',
+            'status' => 'SUCCESS',
+            'source' => 'CREDIT_NOTE',
+
+            // SOURCE REFERENCE ONLY
+            'payable_type' => CreditNote::class,
+            'payable_id' => $note->id,
+
+            'reference' => $refund['reference'] ?? null,
+            'paid_at' => $refund['paid_at'] ?? now(),
+        ]);
     }
 
     protected function resolveReturnLocationId(CreditNote $note): int

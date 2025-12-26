@@ -106,11 +106,6 @@ return new class extends Migration
             $table->foreign('customer_id', 'pos_customer_fk')
                 ->references('id')->on('customers')
                 ->nullOnDelete();
-
-            $table->index(
-                ['company_id', 'customer_id'],
-                'pos_company_customer_idx'
-            );
         });
     }
 
@@ -119,10 +114,7 @@ return new class extends Migration
         Schema::table('pos_orders', function (Blueprint $table) {
             $table->dropForeign('pos_customer_fk');
 
-            try {
-                $table->dropIndex('pos_company_customer_idx');
-            } catch (\Throwable $e) {
-            }
+
 
             if (Schema::hasColumn('pos_orders', 'customer_id')) {
                 $table->dropColumn('customer_id');

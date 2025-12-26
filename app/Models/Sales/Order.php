@@ -1,72 +1,54 @@
 <?php
 
-namespace App\Models\Pos;
+namespace App\Models\Sales;
 
 use App\Models\Accounting\Payment;
-use App\Models\Pos\PosOrderItem;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class PosOrder extends Model
+class Order extends Model
 {
     use SoftDeletes;
 
     protected $fillable = [
         'uuid',
         'company_id',
-        'store_id',
-        'user_id',
-        'status_id',
         'customer_id',
-
+        'status_id',
+        'source',
+        'source_id',
         'order_number',
         'currency_id',
-
-        // payment term snapshot
         'payment_term_id',
-        'payment_term_code',
         'payment_term_name',
         'payment_due_days',
         'due_date',
-        'is_credit_sale',
-
-        // amounts
         'subtotal',
         'tax_total',
         'discount_total',
-        'shipping_amount',
         'grand_total',
-
-        'exchange_rate',
-        'completed_at',
+        'confirmed_at',
+        'created_by'
     ];
 
     protected $casts = [
+        'confirmed_at' => 'datetime',
+        'due_date' => 'date',
         'subtotal' => 'decimal:6',
         'tax_total' => 'decimal:6',
-        'discount_total' => 'decimal:6',
-        'shipping_amount' => 'decimal:6',
         'grand_total' => 'decimal:6',
-        'exchange_rate' => 'decimal:8',
-        'completed_at' => 'datetime',
-        'due_date' => 'datetime',
-        'is_credit_sale' => 'boolean',
-        'payment_due_days' => 'integer',
     ];
 
     public function items()
     {
-        return $this->hasMany(PosOrderItem::class);
+        return $this->hasMany(OrderItem::class);
     }
 
     public function status()
     {
-        return $this->belongsTo(PosOrderStatus::class, 'status_id');
+        return $this->belongsTo(OrderStatus::class);
     }
 
-    /**
-     * ✅ Unified payments (polymorphic)
-     */
     public function payments()
     {
         return $this->morphMany(Payment::class, 'payable');

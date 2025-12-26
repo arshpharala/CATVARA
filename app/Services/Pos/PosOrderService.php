@@ -9,28 +9,29 @@ use Carbon\Carbon;
 use App\Models\Pos\{
     PosOrder,
     PosOrderItem,
-    PosOrderStatus,
-    PosPayment
+    PosOrderStatus
 };
 
 use App\Models\Inventory\Store;
 use App\Models\Inventory\CompanyInventorySetting;
 
+use App\Models\Customer\Customer;
+use App\Models\Accounting\PaymentTerm;
+
 use App\Services\Pricing\PricingService;
 use App\Services\Inventory\InventoryPostingService;
 use App\Services\Common\DocumentNumberService;
+use App\Services\Accounting\PaymentService;
 
 class PosOrderService
 {
     public function __construct(
         protected PricingService $pricingService,
         protected InventoryPostingService $inventoryService,
-        protected DocumentNumberService $documentNumberService
+        protected DocumentNumberService $documentNumberService,
+        protected PaymentService $paymentService
     ) {}
 
-    /**
-     * Create a draft POS order
-     */
     public function createDraft(array $data): PosOrder
     {
         $orderNumber = $this->documentNumberService->generate(
@@ -41,10 +42,14 @@ class PosOrderService
         );
 
         $draftStatusId = PosOrderStatus::where('code', 'DRAFT')->value('id');
-
         if (!$draftStatusId) {
             throw new \RuntimeException('POS draft status not configured.');
         }
+
+        $termSnapshot = $this->resolvePaymentTermSnapshot(
+            companyId: (int) $data['company_id'],
+            customerId: isset($data['customer_id']) ? (int) $data['customer_id'] : null
+        );
 
         return PosOrder::create([
             'uuid' => Str::uuid(),
@@ -55,12 +60,14 @@ class PosOrderService
             'order_number' => $orderNumber,
             'status_id' => $draftStatusId,
             'currency_id' => $data['currency_id'],
+
+            'payment_term_id' => $termSnapshot['id'],
+            'payment_term_code' => $termSnapshot['code'],
+            'payment_term_name' => $termSnapshot['name'],
+            'payment_due_days' => $termSnapshot['due_days'],
         ]);
     }
 
-    /**
-     * Add item to draft order
-     */
     public function addItem(PosOrder $order, int $variantId, int $quantity): PosOrderItem
     {
         $order->loadMissing('status');
@@ -99,59 +106,51 @@ class PosOrderService
     /**
      * Complete POS order (FINAL SALE)
      */
-    public function completeOrder(
-        PosOrder $order,
-        array $payments = [],
-        float $shipping = 0
-    ): PosOrder {
-
-        $order->loadMissing('status');
+    public function completeOrder(PosOrder $order, array $payments = [], float $shipping = 0): PosOrder
+    {
+        $order->loadMissing(['status', 'items', 'store']);
 
         if ($order->status->is_final) {
             throw new \RuntimeException('Order already finalized.');
         }
 
+        if ($order->items->isEmpty()) {
+            throw new \RuntimeException('Cannot complete an empty order.');
+        }
+
         return DB::transaction(function () use ($order, $payments, $shipping) {
 
-            $order->load(['items', 'store']);
-
-            if ($order->items->isEmpty()) {
-                throw new \RuntimeException('Cannot complete an empty order.');
-            }
-
-            // Totals
             $subtotal   = $order->items->sum('line_total');
             $grandTotal = bcadd((string) $subtotal, (string) $shipping, 6);
 
-            // Payment validation
-            $paidAmount = collect($payments)->sum('amount');
+            /**
+             * ✅ BC-safe paid amount calculation
+             */
+            $paidAmount = '0.000000';
+            foreach ($payments as $p) {
+                $paidAmount = bcadd(
+                    $paidAmount,
+                    (string) ($p['amount'] ?? '0'),
+                    6
+                );
+            }
 
-            if ($paidAmount > $grandTotal) {
+            if (bccomp($paidAmount, (string) $grandTotal, 6) === 1) {
                 throw new \RuntimeException('Payment exceeds order total.');
             }
 
-            // Resolve inventory location
             $inventoryLocationId = $this->resolveStoreInventoryLocation($order->store);
 
-            // Load company inventory settings
-            $settings = CompanyInventorySetting::where(
-                'company_id',
-                $order->company_id
-            )->first();
-
+            $settings = CompanyInventorySetting::where('company_id', $order->company_id)->first();
             if (!$settings) {
                 throw new \RuntimeException('Company inventory settings not configured.');
             }
 
-            /**
-             * 🔒 STOCK VALIDATION (CONFIG-AWARE)
-             */
             foreach ($order->items as $item) {
-
                 $availableQty = $this->inventoryService->getAvailableStock(
-                    companyId: $order->company_id,
-                    inventoryLocationId: $inventoryLocationId,
-                    variantId: $item->product_variant_id
+                    $order->company_id,
+                    $inventoryLocationId,
+                    $item->product_variant_id
                 );
 
                 if (
@@ -160,17 +159,12 @@ class PosOrderService
                     $availableQty < $item->quantity
                 ) {
                     throw new \RuntimeException(
-                        "Insufficient stock for product variant ID {$item->product_variant_id}. " .
-                            "Available: {$availableQty}, Required: {$item->quantity}"
+                        "Insufficient stock for variant {$item->product_variant_id}. Available: {$availableQty}, Required: {$item->quantity}"
                     );
                 }
             }
 
-            /**
-             * INVENTORY POSTING (SALE)
-             */
             foreach ($order->items as $item) {
-
                 $this->inventoryService->postMovement([
                     'company_id' => $order->company_id,
                     'inventory_location_id' => $inventoryLocationId,
@@ -184,38 +178,66 @@ class PosOrderService
                 ]);
             }
 
-            // Mark completed
             $completedStatusId = PosOrderStatus::where('code', 'COMPLETED')->value('id');
-
             if (!$completedStatusId) {
                 throw new \RuntimeException('POS completed status not configured.');
             }
 
+            $hasCreditMethod = collect($payments)->contains(
+                fn($p) => strtoupper($p['method_code'] ?? '') === 'CREDIT'
+            );
+
+            $isCreditSale = $hasCreditMethod
+                || bccomp($paidAmount, (string) $grandTotal, 6) === -1;
+
+            $completedAt = Carbon::now();
+            $dueDays = (int) ($order->payment_due_days ?? 0);
+            $dueDate = $dueDays > 0 ? (clone $completedAt)->addDays($dueDays) : $completedAt;
+
             $order->update([
-                'subtotal'       => $subtotal,
+                'subtotal' => $subtotal,
                 'shipping_amount' => $shipping,
-                'grand_total'    => $grandTotal,
-                'status_id'      => $completedStatusId,
-                'completed_at'   => Carbon::now(),
+                'grand_total' => $grandTotal,
+                'status_id' => $completedStatusId,
+                'completed_at' => $completedAt,
+                'is_credit_sale' => $isCreditSale,
+                'due_date' => $dueDate,
             ]);
 
-            // Save payments
-            foreach ($payments as $payment) {
-                PosPayment::create([
-                    'pos_order_id' => $order->id,
-                    'method'       => $payment['method'],
-                    'amount'       => $payment['amount'],
-                    'reference'    => $payment['reference'] ?? null,
-                ]);
+            /**
+             * ✅ Centralized payment recording
+             */
+            if (!empty($payments)) {
+                $normalizedPayments = array_map(function ($p) use ($order, $completedAt) {
+                    return [
+                        'method_code' => $p['method_code'] ?? null,
+                        'amount' => $p['amount'] ?? '0',
+                        'reference' => $p['reference'] ?? null,
+                        'document_no' => $p['document_no'] ?? null,
+                        'gateway_reference' => $p['gateway_reference'] ?? null,
+                        'gateway_payload' => $p['gateway_payload'] ?? null,
+                        'payment_currency_id' => $p['payment_currency_id'] ?? $order->currency_id,
+                        'exchange_rate' => $p['exchange_rate'] ?? '1.00000000',
+                        'idempotency_key' => $p['idempotency_key'] ?? null,
+                        'paid_at' => $p['paid_at'] ?? $completedAt,
+                    ];
+                }, $payments);
+
+                $this->paymentService->createMany(
+                    $normalizedPayments,
+                    [
+                        'company_id'   => $order->company_id,
+                        'payable_type' => PosOrder::class,
+                        'payable_id'   => $order->id,
+                        'source'       => 'POS',
+                    ]
+                );
             }
 
-            return $order;
+            return $order->refresh();
         });
     }
 
-    /**
-     * Resolve store inventory location
-     */
     protected function resolveStoreInventoryLocation(Store $store): int
     {
         $store->loadMissing('inventoryLocation');
@@ -225,5 +247,34 @@ class PosOrderService
         }
 
         return $store->inventoryLocation->id;
+    }
+
+    protected function resolvePaymentTermSnapshot(int $companyId, ?int $customerId): array
+    {
+        $term = null;
+
+        if ($customerId) {
+            $customer = Customer::where('company_id', $companyId)->find($customerId);
+            if ($customer?->payment_term_id) {
+                $term = PaymentTerm::find($customer->payment_term_id);
+            }
+        }
+
+        if (!$term) {
+            $term = PaymentTerm::query()
+                ->select('payment_terms.*')
+                ->join('company_payment_terms', 'company_payment_terms.payment_term_id', '=', 'payment_terms.id')
+                ->where('company_payment_terms.company_id', $companyId)
+                ->where('company_payment_terms.is_default', 1)
+                ->where('payment_terms.is_active', 1)
+                ->first();
+        }
+
+        return [
+            'id' => $term?->id,
+            'code' => $term?->code,
+            'name' => $term?->name,
+            'due_days' => (int) ($term?->due_days ?? 0),
+        ];
     }
 }

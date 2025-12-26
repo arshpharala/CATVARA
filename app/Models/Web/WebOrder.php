@@ -2,13 +2,14 @@
 
 namespace App\Models\Web;
 
-use App\Models\Web\WebPayment;
-use App\Models\Web\WebOrderItem;
-use App\Models\Customer\Customer;
-use App\Models\Web\WebOrderStatus;
-use App\Models\Web\WebOrderAddress;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+
+use App\Models\Accounting\Payment;
+use App\Models\Customer\Customer;
+use App\Models\Web\WebOrderItem;
+use App\Models\Web\WebOrderStatus;
+use App\Models\Web\WebOrderAddress;
 
 class WebOrder extends Model
 {
@@ -21,6 +22,15 @@ class WebOrder extends Model
         'status_id',
         'order_number',
         'currency_id',
+
+        // payment term snapshot
+        'payment_term_id',
+        'payment_term_code',
+        'payment_term_name',
+        'payment_due_days',
+        'due_date',
+        'is_credit_sale',
+
         'subtotal',
         'tax_total',
         'shipping_amount',
@@ -30,11 +40,10 @@ class WebOrder extends Model
 
     protected $casts = [
         'placed_at' => 'datetime',
+        'due_date' => 'datetime',
+        'is_credit_sale' => 'boolean',
+        'payment_due_days' => 'integer',
     ];
-
-    /* ========================
-     | Relationships
-     ======================== */
 
     public function status()
     {
@@ -43,34 +52,31 @@ class WebOrder extends Model
 
     public function items()
     {
-        return $this->hasMany(WebOrderItem::class, 'web_order_id');
+        return $this->hasMany(WebOrderItem::class);
     }
 
     public function addresses()
     {
-        return $this->hasMany(WebOrderAddress::class, 'web_order_id');
+        return $this->hasMany(WebOrderAddress::class);
     }
 
     public function billingAddress()
     {
-        return $this->hasOne(WebOrderAddress::class, 'web_order_id')
-            ->where('type', 'BILLING');
+        return $this->hasOne(WebOrderAddress::class)->where('type', 'BILLING');
     }
 
     public function shippingAddress()
     {
-        return $this->hasOne(WebOrderAddress::class, 'web_order_id')
-            ->where('type', 'SHIPPING');
+        return $this->hasOne(WebOrderAddress::class)->where('type', 'SHIPPING');
     }
 
+    /**
+     * ✅ Unified payments
+     */
     public function payments()
     {
-        return $this->hasMany(WebPayment::class, 'web_order_id');
+        return $this->morphMany(Payment::class, 'payable');
     }
-
-    /* ========================
-     | Helpers
-     ======================== */
 
     public function isFinal(): bool
     {
