@@ -21,6 +21,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->string('profile_photo')->nullable();
             $table->timestamp('last_login_at')->nullable();
+            $table->string('user_type')->default('ADMIN');
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();

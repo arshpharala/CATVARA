@@ -26,6 +26,7 @@ class User extends Authenticatable
         'password',
         'last_login_at',
         'is_active',
+        'user_type',
     ];
 
     /**
@@ -65,5 +66,20 @@ class User extends Authenticatable
             Role::class,
             'company_user_role'
         )->wherePivot('company_id', $companyId);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->user_type === 'SUPER_ADMIN';
+    }
+
+    public function isAdmin(): bool
+    {
+        return in_array($this->user_type, ['SUPER_ADMIN', 'ADMIN']);
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->user_type === 'STAFF';
     }
 }

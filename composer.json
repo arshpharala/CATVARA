@@ -11,10 +11,15 @@
     "require": {
         "php": "^8.2",
         "laravel/framework": "^12.0",
+        "kris/laravel-form-builder": "^1.54",
+        "opcodesio/log-viewer": "^3.19",
+        "yajra/laravel-datatables-oracle": "*",
+        "prettus/l5-repository": "^2.10",
         "laravel/tinker": "^2.10.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
+        "laravel/breeze": "^2.3",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.24",
         "laravel/sail": "^1.41",
