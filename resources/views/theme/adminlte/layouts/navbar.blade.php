@@ -46,15 +46,15 @@
         </a>
 
         <ul class="dropdown-menu dropdown-menu-end shadow">
-          <a href="#" class="dropdown-item"></i> {{ auth('admin')->user()->name ?? 'Guest' }}
+          <a href="#" class="dropdown-item"></i> {{ auth()->user()->name ?? 'Guest' }}
           </a>
           <div class="dropdown-divider"></div>
 
-          <a class="dropdown-item dropdown-footer" href="{{ route('admin.logout') }}"
+          <a class="dropdown-item dropdown-footer" href="{{ route('logout') }}"
             onclick="event.preventDefault(); document.getElementById('logout-form').submit();"><i
               class="fas fa-sign-out-alt me-2"></i> Logout</a>
         </ul>
-        <form id="logout-form" action="{{ route('admin.logout') }}" method="POST" class="d-none">
+        <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
           @csrf
         </form>
       </li>

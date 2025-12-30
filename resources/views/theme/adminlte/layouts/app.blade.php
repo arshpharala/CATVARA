@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="{{ app()->getLocale() }}">
-
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>{{ setting('site_title', env('APP_NAME')) }}</title>
+  <title>{{ setting('site_title', 'Xtremez') }}</title>
 
   <!-- Google Font: Source Sans Pro -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
@@ -22,8 +21,6 @@
   <link rel="stylesheet"
     href="{{ asset('theme/adminlte/plugins/select2-bootstrap4-theme/select2-bootstrap4.min.css') }}">
 
-  <link rel="stylesheet" href="{{ asset('theme/adminlte/plugins/bs-stepper/css/bs-stepper.min.css') }}">
-
   <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
     integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
@@ -31,11 +28,6 @@
 
   <!-- SweetAlert2 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet" />
-
-  <script>
-    const appUrl = '{{ env('APP_URL') }}';
-  </script>
-
   <!-- SweetAlert2 JS -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -51,7 +43,6 @@
     .select2-results__option.select2-results__option--highlighted {
       background-color: #6c757d !important;
     }
-
   </style>
 
   @stack('head')
@@ -95,9 +86,6 @@
   <script src="{{ asset('theme/adminlte/plugins/jquery/jquery.min.js') }}"></script>
   <!-- Bootstrap 4 -->
   {{-- <script src="{{ asset('theme/adminlte/plugins/bootstrap/js/bootstrap.bundle.min.js') }}"></script> --}}
-
-  <script src="{{ asset('theme/adminlte/plugins/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
   <!-- AdminLTE App -->
@@ -117,7 +105,6 @@
   <script src="{{ asset('theme/adminlte/plugins/datatables-buttons/js/buttons.colVis.min.js') }}"></script>
   <!-- Select2 -->
   <script src="{{ asset('theme/adminlte/plugins/select2/js/select2.full.min.js') }}"></script>
-  <script src="{{ asset('theme/adminlte/plugins/bs-stepper/js/bs-stepper.min.js') }}"></script>
 
   <script src="https://cdn.tiny.cloud/1/{{ setting('tiny_mc_key', env('TINY_MC_KEY')) }}/tinymce/7/tinymce.min.js"
     referrerpolicy="origin"></script>
@@ -126,7 +113,7 @@
       selector: 'textarea.tinymce-editor',
       plugins: 'advlist autolink lists link image charmap preview anchor pagebreak table code fullscreen',
       toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | code fullscreen',
-      images_upload_url: "{{ route('admin.cms.upload.tinymce', ['_token' => csrf_token()]) }}",
+      images_upload_url: "{{ route('cms.upload.tinymce', ['_token' => csrf_token()]) }}",
       images_upload_credentials: true,
       height: 400,
       branding: false,
@@ -137,26 +124,25 @@
       // Use the default TinyMCE handler (no need for custom images_upload_handler!)
     });
   </script>
-
+{{--
   <script>
-    // setInterval(() => {
-    //   fetch("{{ route('session.check') }}", {
-    //       cache: "no-store"
-    //     })
-    //     .then(r => {
-    //       if (!r.ok) location.reload();
-    //     })
-    //     .catch(() => location.reload());
-    // }, 100000);
-  </script>
+    setInterval(() => {
+      fetch("{{ route('admin.session.check') }}", {
+          cache: "no-store"
+        })
+        .then(r => {
+          if (!r.ok) location.reload();
+        })
+        .catch(() => location.reload());
+    }, 100000);
+  </script> --}}
 
 
 
 
   <!-- Custom JS -->
-  <script src="{{ asset('theme/adminlte/assets/js/form.js') }}"></script>
-  <script src="{{ asset('theme/adminlte/assets/js/navbar.js') }}"></script>
-  <script src="{{ asset('theme/adminlte/assets/js/address.js') }}"></script>
+  <script src="{{ asset('assets/js/form.js') }}"></script>
+  <script src="{{ asset('assets/js/navbar.js') }}"></script>
 
   @stack('scripts')
 </body>
