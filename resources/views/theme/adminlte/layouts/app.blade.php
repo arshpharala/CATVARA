@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -35,6 +36,10 @@
   <link rel="stylesheet" href="{{ asset('theme/adminlte/dist/css/adminlte.min.css') }}">
 
   <style>
+    [class*=sidebar-dark-] {
+      background-color: #000000;
+    }
+
     .tox-editor-header .tox-promotion-button {
       display: none !important;
     }
@@ -124,7 +129,7 @@
       // Use the default TinyMCE handler (no need for custom images_upload_handler!)
     });
   </script>
-{{--
+  {{--
   <script>
     setInterval(() => {
       fetch("{{ route('admin.session.check') }}", {

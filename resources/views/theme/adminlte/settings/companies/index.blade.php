@@ -79,8 +79,9 @@
           </select>
         </div>
       </div>
+    </div>
+    <div class="card-footer">
 
-      <hr class="my-3">
 
       {{-- Row 2: buttons (separate row as requested) --}}
       <div class="row">
