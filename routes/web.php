@@ -16,6 +16,8 @@ use App\Http\Controllers\Admin\Settings\CompanyController;
 use App\Http\Controllers\Admin\Settings\ModuleController;
 use App\Http\Controllers\Admin\Settings\PermissionController;
 use App\Http\Controllers\Admin\Settings\RolePermissionController;
+use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\QuoteController;
 
 /**
  * Bind {company} by UUID (Laravel 12 compatible)
@@ -92,35 +94,38 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * Company-scoped application (everything operational)
      */
     Route::prefix('{company}')
-        ->as('company.')
         ->middleware(['company.access', 'company.context'])
         ->group(function () {
 
             Route::get('dashboard', [DashboardController::class, 'dashboard'])
-                ->name('dashboard');
+                ->name('company.dashboard');
 
             /**
              * Company-scoped Settings (Roles are company-wise)
              */
-            Route::prefix('settings')->as('settings.')->group(function () {
+            Route::prefix('settings')->as('company.settings.')->group(function () {
 
                 Route::resource('roles', RoleController::class)->except(['show', 'destroy']);
 
 
                 // Route::get('roles/{role}/permissions', [RolePermissionController::class, 'edit'])
                 //     ->name('roles.permissions.edit');
-
+    
                 // Route::put('roles/{role}/permissions', [RolePermissionController::class, 'update'])
                 //     ->name('roles.permissions.update');
             });
 
             /**
-             * Future company modules (add later):
-             * customers, inventory, pos, orders, reports...
-             *
-             * Example:
-             * Route::resource('customers', CustomerController::class)->names('customers');
+             * Customers Module
              */
+            Route::resource('customers', CustomerController::class)->except(['destroy']);
+            Route::get('customers/load/stats', [CustomerController::class, 'stats'])->name('customers.stats');
+
+            /**
+             * Quotes Module
+             */
+            Route::resource('quotes', QuoteController::class)->except(['destroy']);
+            Route::get('quotes/load/stats', [QuoteController::class, 'stats'])->name('quotes.stats');
         });
 });
 

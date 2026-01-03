@@ -22,12 +22,13 @@ class QuoteService
             'company_id' => $data['company_id'],
             'customer_id' => $data['customer_id'] ?? null,
             'status_id' => $statusId,
-            'quote_number' => $this->docService->generate(
-                companyId: $data['company_id'],
-                documentType: 'QUOTE',
-                channel: 'SALES',
-                year: now()->year
-            ),
+            'quote_number' => Str::uuid(), // Temporary UUID as quote number
+            // 'quote_number' => $this->docService->generate(
+            //     companyId: $data['company_id'],
+            //     documentType: 'QUOTE',
+            //     channel: 'SALES',
+            //     year: now()->year
+            // ),
             'currency_id' => $data['currency_id'],
             'payment_term_id' => $data['payment_term_id'],
             'payment_term_name' => $data['payment_term_name'],
