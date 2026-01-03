@@ -126,8 +126,8 @@ class AuthenticationSeeder extends Seeder
 
         // 5) Create/Update role in that company
         $role = Role::updateOrCreate(
-            ['company_id' => $company->id, 'slug' => 'super-admin'],
-            ['name' => 'Super Admin', 'is_active' => true]
+            ['company_id' => $company->id, 'slug' => 'admin'],
+            ['name' => 'Admin', 'is_active' => true]
         );
 
         // 6) Attach ALL permissions to that role

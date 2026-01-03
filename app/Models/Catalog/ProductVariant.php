@@ -2,9 +2,7 @@
 
 namespace App\Models\Catalog;
 
-use App\Models\Catalog\Product;
 use App\Models\Common\Attachment;
-use App\Models\Catalog\AttributeValue;
 use Illuminate\Database\Eloquent\Model;
 
 class ProductVariant extends Model
@@ -14,6 +12,7 @@ class ProductVariant extends Model
         'company_id',
         'product_id',
         'sku',
+        'cost_price',
         'barcode',
         'is_active',
     ];
@@ -39,5 +38,15 @@ class ProductVariant extends Model
             Attachment::class,
             'attachable'
         );
+    }
+
+    public function prices()
+    {
+        return $this->hasMany(\App\Models\Pricing\VariantPrice::class);
+    }
+
+    public function inventory()
+    {
+        return $this->hasMany(\App\Models\Inventory\InventoryBalance::class);
     }
 }

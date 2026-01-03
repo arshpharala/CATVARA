@@ -35,16 +35,19 @@ class InventorySeeder extends Seeder
             ['code' => 'RETURN_OUT', 'name' => 'Supplier Return', 'is_increase' => false],
         ];
 
-        foreach ($reasons as $r) {
-            InventoryReason::updateOrCreate(
-                ['code' => $r['code']],
-                [
-                    'name' => $r['name'],
-                    'is_increase' => $r['is_increase'],
-                    'is_active' => true,
-                ]
-            );
-        }
+        // Create reasons for each company
+        Company::all()->each(function (Company $company) use ($reasons) {
+            foreach ($reasons as $r) {
+                InventoryReason::updateOrCreate(
+                    ['company_id' => $company->id, 'code' => $r['code']],
+                    [
+                        'name' => $r['name'],
+                        'is_increase' => $r['is_increase'],
+                        'is_active' => true,
+                    ]
+                );
+            }
+        });
 
         /**
          * 2️⃣ INVENTORY TRANSFER STATUSES

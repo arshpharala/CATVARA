@@ -1,23 +1,12 @@
 <?php
 
-use Illuminate\Http\Request;
-use App\Models\Company\Company;
-
-use Illuminate\Support\Facades\Route;
-
-use App\Http\Controllers\Admin\DashboardController;
-
 use App\Http\Controllers\Admin\CMS\TinyMCEController;
-
-use App\Http\Controllers\Admin\Settings\RoleController;
-use App\Http\Controllers\Admin\Settings\UserController;
 use App\Http\Controllers\Admin\CompanyContextController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\Settings\CompanyController;
 use App\Http\Controllers\Admin\Settings\ModuleController;
 use App\Http\Controllers\Admin\Settings\PermissionController;
 use App\Http\Controllers\Admin\Settings\RolePermissionController;
-use App\Http\Controllers\Admin\CustomerController;
-use App\Http\Controllers\Admin\QuoteController;
 
 /**
  * Bind {company} by UUID (Laravel 12 compatible)
@@ -66,8 +55,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('companies', CompanyController::class)->except(['destroy']);
         Route::get('companies/load/stats', [CompanyController::class, 'stats'])->name('companies.stats');
 
-        Route::resource('users', UserController::class)->except(['destroy'])->names('users');
+        Route::resource('currencies', \App\Http\Controllers\Admin\Settings\CurrencyController::class)->except(['destroy']);
+        Route::resource('payment-terms', \App\Http\Controllers\Admin\Settings\PaymentTermController::class)->except(['destroy']);
 
+        Route::resource('users', UserController::class)->except(['destroy'])->names('users');
 
         Route::resource('modules', ModuleController::class)->except(['destroy']);
         Route::resource('permissions', PermissionController::class)->except(['destroy']);
@@ -101,32 +92,68 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->name('company.dashboard');
 
             /**
+             * Catalog Management
+             */
+            Route::prefix('catalog')->as('catalog.')->group(function () {
+                Route::resource('categories', \App\Http\Controllers\Admin\Catalog\CategoryController::class);
+                Route::get('categories/{category}/attributes', [\App\Http\Controllers\Admin\Catalog\CategoryController::class, 'getAttributes'])
+                    ->name('categories.attributes');
+
+                // Attributes
+                Route::resource('attributes', \App\Http\Controllers\Admin\Catalog\AttributeController::class)->except(['show', 'destroy']);
+                Route::resource('products', \App\Http\Controllers\Admin\Catalog\ProductController::class);
+            });
+
+            /**
+             * Inventory Management
+             */
+            Route::prefix('inventory')->as('inventory.')->group(function () {
+                Route::resource('inventory', \App\Http\Controllers\Admin\Inventory\InventoryController::class);
+                Route::get('balances/data', [\App\Http\Controllers\Admin\Inventory\InventoryController::class, 'balancesData'])->name('balances.data');
+                Route::get('inventory/adjust', [\App\Http\Controllers\Admin\Inventory\InventoryController::class, 'create'])->name('inventory.adjust');
+                Route::post('adjust', [\App\Http\Controllers\Admin\Inventory\InventoryController::class, 'store'])->name('store');
+                Route::post('transfer', [\App\Http\Controllers\Admin\Inventory\InventoryController::class, 'transfer'])->name('transfer');
+
+                // Transfers
+                Route::resource('transfers', \App\Http\Controllers\Admin\Inventory\TransferController::class);
+                Route::post('transfers/{transfer}/approve', [\App\Http\Controllers\Admin\Inventory\TransferController::class, 'approve'])->name('transfers.approve');
+                Route::post('transfers/{transfer}/ship', [\App\Http\Controllers\Admin\Inventory\TransferController::class, 'ship'])->name('transfers.ship');
+                Route::post('transfers/{transfer}/receive', [\App\Http\Controllers\Admin\Inventory\TransferController::class, 'receive'])->name('transfers.receive');
+
+                // Movement History
+                Route::get('movements', [\App\Http\Controllers\Admin\Inventory\InventoryController::class, 'movements'])->name('movements');
+
+                // Inventory Management CRUDs
+                Route::resource('warehouses', \App\Http\Controllers\Admin\Inventory\WarehouseController::class);
+                Route::resource('stores', \App\Http\Controllers\Admin\Inventory\StoreController::class);
+                Route::resource('reasons', \App\Http\Controllers\Admin\Inventory\InventoryReasonController::class);
+
+                // Variant Inventory Details
+                Route::get('variant/{product_variant}/details', [\App\Http\Controllers\Admin\Inventory\InventoryController::class, 'variantDetails'])->name('variant.details');
+            });
+            /*
              * Company-scoped Settings (Roles are company-wise)
              */
-            Route::prefix('settings')->as('company.settings.')->group(function () {
+            Route::prefix('settings')->as('settings.')->group(function () {
 
                 Route::resource('roles', RoleController::class)->except(['show', 'destroy']);
 
 
                 // Route::get('roles/{role}/permissions', [RolePermissionController::class, 'edit'])
                 //     ->name('roles.permissions.edit');
-    
+
                 // Route::put('roles/{role}/permissions', [RolePermissionController::class, 'update'])
                 //     ->name('roles.permissions.update');
             });
 
             /**
-             * Customers Module
+             * Future company modules (add later):
+             * customers, inventory, pos, orders, reports...
+             *
+             * Example:
+             * Route::resource('customers', CustomerController::class)->names('customers');
              */
-            Route::resource('customers', CustomerController::class)->except(['destroy']);
-            Route::get('customers/load/stats', [CustomerController::class, 'stats'])->name('customers.stats');
-
-            /**
-             * Quotes Module
-             */
-            Route::resource('quotes', QuoteController::class)->except(['destroy']);
-            Route::get('quotes/load/stats', [QuoteController::class, 'stats'])->name('quotes.stats');
         });
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

@@ -2,33 +2,22 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Models\Company\Company;
+use App\Models\Pricing\Currency;
 use Illuminate\Database\Seeder;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
-        $this->call([
-            AuthenticationSeeder::class,
-            CompanySeeder::class,
-            CatalogSeeder::class,
-            InventoryLocationSeeder::class,
-            InventorySeeder::class,
-            PricingSeeder::class,
-            PosSeeder::class,
-            InvoiceSeeder::class,
-            QuoteSeeder::class,
-            OrderSeeder::class,
-            PaymentSeeder::class,
+        // 1. Setup Company, Currency, Locations, Roles
+        $this->call(VapeShopSetupSeeder::class);
 
-        ]);
+        // 2. Import Products
+        $this->call(VapeShopSeeder::class);
+
+        $this->call(InventorySeeder::class);
+
+        $this->call(AuthenticationSeeder::class);
     }
 }

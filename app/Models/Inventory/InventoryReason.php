@@ -10,6 +10,7 @@ class InventoryReason extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'company_id',
         'name',
         'code',
         'is_increase',
