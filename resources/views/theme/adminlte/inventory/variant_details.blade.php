@@ -7,7 +7,8 @@
     </div>
     <div class="col-sm-6">
       <div class="float-sm-right">
-        <a href="{{ company_route('company.catalog.products.edit', $variant->product_id) }}" class="btn btn-default">
+        <a href="{{ company_route('company.catalog.products.edit', ['product' => $variant->product_id]) }}"
+          class="btn btn-default">
           <i class="fas fa-arrow-left"></i> Back to Product
         </a>
         <button type="button" class="btn btn-warning btn-adjust-stock" data-variant-id="{{ $variant->id }}"

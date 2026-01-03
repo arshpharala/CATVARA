@@ -3,12 +3,11 @@
 namespace App\Http\Controllers\Admin\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Models\Catalog\ProductVariant;
 use App\Models\Inventory\InventoryLocation;
-use App\Models\Inventory\InventoryReason;
 use App\Models\Inventory\InventoryTransfer;
 use App\Models\Inventory\InventoryTransferItem;
 use App\Models\Inventory\InventoryTransferStatus;
-use App\Models\Catalog\ProductVariant;
 use App\Services\Inventory\InventoryTransferService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -33,23 +32,23 @@ class TransferController extends Controller
                 ->with(['fromLocation.locatable', 'toLocation.locatable', 'status']);
 
             return DataTables::of($query)
-                ->addColumn('from', fn($r) => $r->fromLocation->locatable->name ?? '-')
-                ->addColumn('to', fn($r) => $r->toLocation->locatable->name ?? '-')
-                ->addColumn('status_badge', fn($r) => '<span class="badge badge-' . $this->statusColor($r->status->code) . '">' . $r->status->name . '</span>')
-                ->addColumn('items_count', fn($r) => $r->items->count())
-                ->addColumn('actions', function($r) {
-                    return '<a href="' . company_route('company.inventory.transfers.show', $r) . '" class="btn btn-xs btn-info"><i class="fas fa-eye"></i></a>';
+                ->addColumn('from', fn ($r) => $r->fromLocation->locatable->name ?? '-')
+                ->addColumn('to', fn ($r) => $r->toLocation->locatable->name ?? '-')
+                ->addColumn('status_badge', fn ($r) => '<span class="badge badge-'.$this->statusColor($r->status->code).'">'.$r->status->name.'</span>')
+                ->addColumn('items_count', fn ($r) => $r->items->count())
+                ->addColumn('actions', function ($r) {
+                    return '<a href="'.company_route('company.inventory.transfers.show', $r).'" class="btn btn-xs btn-info"><i class="fas fa-eye"></i></a>';
                 })
                 ->rawColumns(['status_badge', 'actions'])
                 ->make(true);
         }
 
-        return view('admin.inventory.transfers.index');
+        return view('theme.adminlte.inventory.transfers.index');
     }
 
     private function statusColor($code): string
     {
-        return match($code) {
+        return match ($code) {
             'DRAFT' => 'secondary',
             'APPROVED' => 'primary',
             'SHIPPED' => 'warning',
@@ -67,7 +66,7 @@ class TransferController extends Controller
         $locations = InventoryLocation::where('company_id', $request->company->id)->with('locatable')->get();
         $variants = ProductVariant::where('company_id', $request->company->id)->with('product')->get();
 
-        return view('admin.inventory.transfers.create', compact('locations', 'variants'));
+        return view('theme.adminlte.inventory.transfers.create', compact('locations', 'variants'));
     }
 
     /**
@@ -88,7 +87,7 @@ class TransferController extends Controller
         $transfer = InventoryTransfer::create([
             'uuid' => Str::uuid(),
             'company_id' => $request->company->id,
-            'reference' => 'TRF-' . strtoupper(Str::random(8)),
+            'reference' => 'TRF-'.strtoupper(Str::random(8)),
             'from_inventory_location_id' => $request->from_location_id,
             'to_inventory_location_id' => $request->to_location_id,
             'inventory_transfer_status_id' => $draftStatus->id,
@@ -119,7 +118,7 @@ class TransferController extends Controller
             ->with(['fromLocation.locatable', 'toLocation.locatable', 'status', 'items.variant.product'])
             ->findOrFail($id);
 
-        return view('admin.inventory.transfers.show', compact('transfer'));
+        return view('theme.adminlte.inventory.transfers.show', compact('transfer'));
     }
 
     /**
@@ -150,7 +149,7 @@ class TransferController extends Controller
     public function receive(Request $request, $id)
     {
         $transfer = InventoryTransfer::where('company_id', $request->company->id)->findOrFail($id);
-        
+
         // For full receive, pass all items as received
         $receivedItems = [];
         foreach ($transfer->items as $item) {

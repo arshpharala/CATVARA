@@ -317,6 +317,21 @@
                     <i class="far fa-circle nav-icon"></i>
                     <p>Adjust Stock</p>
                   </a></li>
+                <li class="nav-item"><a href="{{ company_route('company.inventory.warehouses.index') }}"
+                    class="nav-link {{ $isActive('company.inventory.warehouses.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Warehouses</p>
+                  </a></li>
+                <li class="nav-item"><a href="{{ company_route('company.inventory.stores.index') }}"
+                    class="nav-link {{ $isActive('company.inventory.stores.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Stores</p>
+                  </a></li>
+                <li class="nav-item"><a href="{{ company_route('company.inventory.reasons.index') }}"
+                    class="nav-link {{ $isActive('company.inventory.reasons.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Inv. Reasons</p>
+                  </a></li>
               </ul>
             </li>
           @endif

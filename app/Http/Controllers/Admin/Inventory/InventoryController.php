@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Inventory;
 
 use App\Http\Controllers\Controller;
 use App\Models\Catalog\ProductVariant;
+use App\Models\Company\Company;
 use App\Models\Inventory\InventoryBalance;
 use App\Models\Inventory\InventoryLocation;
 use App\Models\Inventory\InventoryMovement;
@@ -257,18 +258,18 @@ class InventoryController extends Controller
     /**
      * Variant Specific Inventory Details
      */
-    public function variantDetails(Request $request, $id)
+    public function variantDetails(Request $request, Company $company, $id)
     {
         // Using ID and finding manually to ensure company scope
-        $variant = ProductVariant::where('company_id', $request->company->id)
+        $variant = ProductVariant::where('company_id', $company->id)
             ->with(['product', 'attributeValues', 'prices.currency', 'prices.priceChannel'])
             ->findOrFail($id);
 
-        $locations = InventoryLocation::where('company_id', $request->company->id)->with('locatable')->get();
+        $locations = InventoryLocation::where('company_id', $company->id)->with('locatable')->get();
         
         // Balances
         $balances = InventoryBalance::where('product_variant_id', $variant->id)
-            ->where('company_id', $request->company->id)
+            ->where('company_id', $company->id)
             ->with('location.locatable')
             ->get();
 

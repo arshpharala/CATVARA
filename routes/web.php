@@ -124,6 +124,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 // Movement History
                 Route::get('movements', [\App\Http\Controllers\Admin\Inventory\InventoryController::class, 'movements'])->name('movements');
                 
+                // Inventory Management CRUDs
+                Route::resource('warehouses', \App\Http\Controllers\Admin\Inventory\WarehouseController::class);
+                Route::resource('stores', \App\Http\Controllers\Admin\Inventory\StoreController::class);
+                Route::resource('reasons', \App\Http\Controllers\Admin\Inventory\InventoryReasonController::class);
+
                 // Variant Inventory Details
                 Route::get('variant/{product_variant}/details', [\App\Http\Controllers\Admin\Inventory\InventoryController::class, 'variantDetails'])->name('variant.details');
             });
