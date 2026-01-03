@@ -1,10 +1,11 @@
 <?php
 
+use App\Models\Company\Company;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\CMS\TinyMCEController;
 use App\Http\Controllers\Admin\CompanyContextController;
-use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\Settings\CompanyController;
 use App\Http\Controllers\Admin\Settings\ModuleController;
+use App\Http\Controllers\Admin\Settings\CompanyController;
 use App\Http\Controllers\Admin\Settings\PermissionController;
 use App\Http\Controllers\Admin\Settings\RolePermissionController;
 
