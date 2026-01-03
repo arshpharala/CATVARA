@@ -46,7 +46,7 @@ class InventoryController extends Controller
             ->take(5)
             ->get();
 
-        return view('admin.inventory.index', compact('locations', 'stats', 'recentTransfers'));
+        return view('theme.adminlte.inventory.index', compact('locations', 'stats', 'recentTransfers'));
     }
 
     /**
@@ -91,7 +91,7 @@ class InventoryController extends Controller
         // If not seeded, we might need fallback or seed them.
         $reasons = InventoryReason::where('is_active', true)->get();
 
-        return view('admin.inventory.adjust', compact('locations', 'variants', 'reasons'));
+        return view('theme.adminlte.inventory.adjust', compact('locations', 'variants', 'reasons'));
     }
 
     /**
@@ -251,7 +251,7 @@ class InventoryController extends Controller
 
         $locations = InventoryLocation::where('company_id', $request->company->id)->with('locatable')->get();
 
-        return view('admin.inventory.movements', compact('locations'));
+        return view('theme.adminlte.inventory.movements', compact('locations'));
     }
 
     /**
