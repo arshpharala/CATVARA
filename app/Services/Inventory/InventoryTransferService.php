@@ -2,14 +2,10 @@
 
 namespace App\Services\Inventory;
 
-use Illuminate\Support\Facades\DB;
+use App\Models\Inventory\InventoryTransfer;
+use App\Models\Inventory\InventoryTransferStatus;
 use Carbon\Carbon;
-
-use App\Models\Inventory\{
-    InventoryTransfer,
-    InventoryTransferItem,
-    InventoryTransferStatus
-};
+use Illuminate\Support\Facades\DB;
 
 class InventoryTransferService
 {
@@ -126,7 +122,7 @@ class InventoryTransferService
             }
 
             $allReceived = $transfer->items
-                ->every(fn($i) => $i->received_quantity >= $i->quantity);
+                ->every(fn ($i) => $i->received_quantity >= $i->quantity);
 
             $transfer->update([
                 'status_id' => $allReceived ? $closedStatusId : $receivedStatusId,

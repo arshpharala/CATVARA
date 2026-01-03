@@ -15,24 +15,27 @@
 
   // Module visibility flags (only show if at least one route exists)
   $hasSales =
-      Route::has('orders.index') ||
-      Route::has('quotes.index') ||
-      Route::has('invoices.index') ||
-      Route::has('credit-notes.index');
-  $hasPos = Route::has('pos.orders.index') || Route::has('pos.returns.index');
-  $hasWeb = Route::has('web.orders.index');
+      Route::has('company.orders.index') ||
+      Route::has('company.quotes.index') ||
+      Route::has('company.invoices.index') ||
+      Route::has('company.credit-notes.index');
+  $hasPos = Route::has('company.pos.orders.index') || Route::has('company.pos.returns.index');
+  $hasWeb = Route::has('company.web.orders.index');
   $hasAccounting =
       Route::has('payments.index') ||
       Route::has('allocations.index') ||
       Route::has('refunds.index') ||
       Route::has('payment-methods.index');
-  $hasInventory = Route::has('categories.index') || Route::has('products.index') || Route::has('stock-movements.index');
-  $hasCustomers = Route::has('customers.index') || Route::has('customer-balances.index');
+  $hasInventory =
+      Route::has('company.catalog.categories.index') ||
+      Route::has('company.catalog.products.index') ||
+      Route::has('company.stock-movements.index');
+  $hasCustomers = Route::has('company.customers.index') || Route::has('company.customer-balances.index');
   $hasReports =
-      Route::has('reports.sales') ||
-      Route::has('reports.payments') ||
-      Route::has('reports.allocations') ||
-      Route::has('reports.outstanding');
+      Route::has('company.reports.sales') ||
+      Route::has('company.reports.payments') ||
+      Route::has('company.reports.allocations') ||
+      Route::has('company.reports.outstanding');
 @endphp
 
 <!-- Main Sidebar Container -->
@@ -254,31 +257,66 @@
           {{-- Inventory --}}
           @if ($hasInventory)
             <li
-              class="nav-item has-treeview {{ $isActive(['categories.*', 'products.*', 'stock-movements.*']) ? 'menu-open' : '' }}">
+              class="nav-item has-treeview {{ $isActive(['company.catalog.categories.*', 'company.catalog.products.*', 'company.catalog.attributes.*']) ? 'menu-open' : '' }}">
               <a href="#"
-                class="nav-link {{ $isActive(['categories.*', 'products.*', 'stock-movements.*']) ? 'active' : '' }}">
+                class="nav-link {{ $isActive(['company.catalog.categories.*', 'company.catalog.products.*', 'company.catalog.attributes.*']) ? 'active' : '' }}">
                 <i class="nav-icon fas fa-boxes"></i>
-                <p>Inventory <i class="right fas fa-angle-left"></i></p>
+                <p>Catalog <i class="right fas fa-angle-left"></i></p>
               </a>
               <ul class="nav nav-treeview">
-                @if (Route::has('categories.index'))
-                  <li class="nav-item"><a href="{{ company_route('categories.index') }}" class="nav-link"><i
+                @if (Route::has('company.catalog.categories.index'))
+                  <li class="nav-item"><a href="{{ company_route('company.catalog.categories.index') }}"
+                      class="nav-link {{ $isActive('company.catalog.categories.*') ? 'active' : '' }}"><i
                         class="far fa-circle nav-icon"></i>
                       <p>Categories</p>
                     </a></li>
                 @endif
-                @if (Route::has('products.index'))
-                  <li class="nav-item"><a href="{{ company_route('products.index') }}" class="nav-link"><i
+                @if (Route::has('company.catalog.attributes.index'))
+                  <li class="nav-item"><a href="{{ company_route('company.catalog.attributes.index') }}"
+                      class="nav-link {{ $isActive('company.catalog.attributes.*') ? 'active' : '' }}"><i
+                        class="far fa-circle nav-icon"></i>
+                      <p>Attributes</p>
+                    </a></li>
+                @endif
+                @if (Route::has('company.catalog.products.index'))
+                  <li class="nav-item"><a href="{{ company_route('company.catalog.products.index') }}"
+                      class="nav-link {{ $isActive('company.catalog.products.*') ? 'active' : '' }}"><i
                         class="far fa-circle nav-icon"></i>
                       <p>Products</p>
                     </a></li>
                 @endif
-                @if (Route::has('stock-movements.index'))
-                  <li class="nav-item"><a href="{{ company_route('stock-movements.index') }}" class="nav-link"><i
-                        class="far fa-circle nav-icon"></i>
-                      <p>Stock Movements</p>
-                    </a></li>
-                @endif
+              </ul>
+            </li>
+          @endif
+
+          {{-- Inventory Management --}}
+          @if ($hasInventory)
+            <li class="nav-item has-treeview {{ $isActive(['company.inventory.*']) ? 'menu-open' : '' }}">
+              <a href="#" class="nav-link {{ $isActive(['company.inventory.*']) ? 'active' : '' }}">
+                <i class="nav-icon fas fa-warehouse"></i>
+                <p>Inventory <i class="right fas fa-angle-left"></i></p>
+              </a>
+              <ul class="nav nav-treeview">
+                <li class="nav-item"><a href="{{ company_route('company.inventory.inventory.index') }}"
+                    class="nav-link {{ $isActive('company.inventory.inventory.index') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Dashboard</p>
+                  </a></li>
+                <li class="nav-item"><a href="{{ company_route('company.inventory.transfers.index') }}"
+                    class="nav-link {{ $isActive('company.inventory.transfers.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Transfers</p>
+                  </a></li>
+                <li class="nav-item"><a href="{{ company_route('company.inventory.movements') }}"
+                    class="nav-link {{ $isActive('company.inventory.movements') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Movement History</p>
+                  </a></li>
+                <li class="nav-item"><a href="{{ company_route('company.inventory.inventory.create') }}"
+                    class="nav-link {{ $isActive('company.inventory.inventory.create') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Adjust Stock</p>
+                  </a></li>
               </ul>
             </li>
           @endif
@@ -375,6 +413,16 @@
             <p>Permissions</p>
           </a>
         </li>
+
+        @if (company_selected())
+          <li class="nav-item">
+            <a href="{{ company_route('company.settings.general') }}"
+              class="nav-link {{ $isActive('company.settings.general') ? 'active' : '' }}">
+              <i class="nav-icon fas fa-cogs"></i>
+              <p>Company Profile</p>
+            </a>
+          </li>
+        @endif
 
         {{-- Modules (safe) --}}
         <li class="nav-item">

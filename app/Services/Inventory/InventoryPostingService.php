@@ -2,13 +2,12 @@
 
 namespace App\Services\Inventory;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
-use Carbon\Carbon;
-
 use App\Models\Inventory\InventoryBalance;
 use App\Models\Inventory\InventoryMovement;
 use App\Models\Inventory\InventoryReason;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class InventoryPostingService
 {
@@ -34,9 +33,10 @@ class InventoryPostingService
         return DB::transaction(function () use ($data) {
 
             /**
-             * 1️⃣ Resolve inventory reason
+             * 1️⃣ Resolve inventory reason (company-scoped)
              */
-            $reason = InventoryReason::where('code', $data['reason_code'])
+            $reason = InventoryReason::where('company_id', $data['company_id'])
+                ->where('code', $data['reason_code'])
                 ->where('is_active', true)
                 ->firstOrFail();
 
@@ -50,7 +50,7 @@ class InventoryPostingService
             /**
              * 3️⃣ Idempotency check (SAFE RETRY)
              */
-            if (!empty($data['idempotency_key'])) {
+            if (! empty($data['idempotency_key'])) {
                 $existing = InventoryMovement::where('company_id', $data['company_id'])
                     ->where('idempotency_key', $data['idempotency_key'])
                     ->first();
@@ -69,7 +69,7 @@ class InventoryPostingService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$balance) {
+            if (! $balance) {
                 $balance = InventoryBalance::create([
                     'uuid' => Str::uuid(),
                     'company_id' => $data['company_id'],
@@ -86,7 +86,7 @@ class InventoryPostingService
 
             $allowNegative = (bool) ($data['allow_negative'] ?? false);
 
-            if (!$allowNegative && bccomp($newQty, '0', 6) === -1) {
+            if (! $allowNegative && bccomp($newQty, '0', 6) === -1) {
                 throw new \RuntimeException('Insufficient stock for this operation.');
             }
 
