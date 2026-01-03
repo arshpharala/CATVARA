@@ -11,6 +11,7 @@ use App\Models\Inventory\InventoryMovement;
 use App\Models\Inventory\InventoryReason;
 use App\Models\Inventory\InventoryTransfer;
 use Illuminate\Http\Request;
+use App\Http\Requests;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Yajra\DataTables\Facades\DataTables;
@@ -69,8 +70,9 @@ class InventoryController extends Controller
             ->editColumn('quantity', fn($r) => '<span class="badge badge-' . ($r->quantity > 0 ? 'success' : 'danger') . '">' . (float)$r->quantity . '</span>')
             ->addColumn('last_movement', fn($r) => $r->last_movement_at ? $r->last_movement_at->diffForHumans() : '-')
             ->addColumn('actions', function($r) {
-                $adjustUrl = company_route('company.inventory.inventory.create') . '?variant=' . $r->product_variant_id . '&location=' . $r->inventory_location_id;
-                return '<a href="' . $adjustUrl . '" class="btn btn-xs btn-warning"><i class="fas fa-edit"></i> Adjust</a>';
+                // Link to Variant Details
+                $url = company_route('company.inventory.variant.details', ['id' => $r->product_variant_id]);
+                return '<a href="' . $url . '" class="btn btn-xs btn-primary"><i class="fas fa-eye"></i> Manage</a>';
             })
             ->rawColumns(['quantity', 'actions'])
             ->make(true);
@@ -98,38 +100,13 @@ class InventoryController extends Controller
     /**
      * Process stock adjustment.
      */
-    public function store(Request $request)
+    public function store(Requests\Inventory\StoreStockAdjustmentRequest $request)
     {
-        $request->validate([
-            'inventory_location_id' => 'required|exists:inventory_locations,id',
-            'product_variant_id' => 'required|exists:product_variants,id',
-            'quantity' => 'required|numeric|min:0.01',
-            'type' => 'required|in:add,remove',
-            'reason' => 'nullable|string',
-            'redirect_to' => 'nullable|url',
-        ]);
-
         try {
             DB::beginTransaction();
 
-            // Ensure Manual Reason exists
-            InventoryReason::firstOrCreate(
-                ['company_id' => $request->company->id, 'code' => 'MANUAL'],
-                ['name' => 'Manual Adjustment', 'is_active' => true]
-            );
-
-            // Calculate signed quantity (Not needed for service usually if we use reason props,
-            // but InventoryPostingService calculates sign based on REASON is_increase.
-            // Wait, InventoryPostingService line 46: $signedQty = $reason->is_increase ? abs($q) : -abs($q);
-            // So if I pass 'MANUAL' (type=adjustment), I need to check if 'MANUAL' is increase or decrease?
-            // Actually, "Adjustment" type isn't inherently + or -.
-            // I should have two reasons: 'MANUAL_ADD' (increase=true) and 'MANUAL_REMOVE' (increase=false).
-            // OR I just pass a quantity to the service?
-            // Let's re-read Service line 39: `InventoryReason::where('code', $data['reason_code'])`.
-            // Line 46: `$signedQty = $reason->is_increase ? abs... : -abs...`
-            // So the Service ENFORCES the sign based on the Reason configuration. This is strict audit.
-            // Therefore, I cannot just pass + or - with the same reason code "MANUAL".
-            // I MUST have two reasons: "STOCK_IN" (or similar) and "STOCK_OUT".
+            // Determine reason code based on type
+            // ... (rest of logic same) ...
 
             $reasonCode = $request->type === 'add' ? 'STOCK_IN' : 'STOCK_OUT';
 
@@ -152,6 +129,7 @@ class InventoryController extends Controller
                 'product_variant_id' => $request->product_variant_id,
                 'reason_code' => $reasonCode,
                 'quantity' => $request->quantity, // Service takes abs via reason logic
+                'unit_cost' => ProductVariant::find($request->product_variant_id)->cost_price ?? 0,
                 'performed_by' => auth()->id(),
                 'reference_type' => 'manual_adjustment',
                 'reference_id' => null, // Could ideally store a ManualAdjustment record ID but simple movement is OK for now
@@ -179,16 +157,8 @@ class InventoryController extends Controller
     /**
      * Process quick transfer (Immediate).
      */
-    public function transfer(Request $request)
+    public function transfer(Requests\Inventory\CreateQuickTransferRequest $request)
     {
-        $request->validate([
-            'from_location_id' => 'required|exists:inventory_locations,id',
-            'to_location_id' => 'required|exists:inventory_locations,id|different:from_location_id',
-            'product_variant_id' => 'required|exists:product_variants,id',
-            'quantity' => 'required|numeric|min:0.01',
-            'redirect_to' => 'nullable|url',
-        ]);
-
         try {
             // Ensure transfer reasons exist (company-scoped)
             InventoryReason::firstOrCreate(
@@ -229,7 +199,7 @@ class InventoryController extends Controller
     {
         if ($request->ajax()) {
             $query = InventoryMovement::where('company_id', $request->company->id)
-                ->with(['productVariant.product', 'location.locatable', 'reason', 'performer']);
+                ->with(['variant.product', 'location.locatable', 'reason', 'performer']);
 
             if ($request->filled('location_id')) {
                 $query->where('inventory_location_id', $request->location_id);
@@ -240,9 +210,16 @@ class InventoryController extends Controller
             }
 
             return DataTables::of($query)
-                ->addColumn('sku', fn($r) => $r->productVariant->sku ?? '-')
+                ->addColumn('sku', fn($r) => $r->variant->sku ?? '-')
                 ->addColumn('location_name', fn($r) => $r->location->locatable->name ?? $r->location->type ?? '-')
                 ->addColumn('reason_name', fn($r) => $r->reason->name ?? '-')
+                ->addColumn('reference', function($r) {
+                     // Basic formatting of reference
+                     if($r->reference_type === 'inventory_transfer') {
+                         return 'Transfer'; // Could link to it if we had the ID easily or loaded relation
+                     }
+                     return $r->reference_type ? class_basename($r->reference_type) : '-';
+                })
                 ->editColumn('quantity', fn($r) => '<span class="badge badge-' . ($r->quantity > 0 ? 'success' : 'danger') . '">' . ($r->quantity > 0 ? '+' : '') . (float)$r->quantity . '</span>')
                 ->addColumn('performed_by_name', fn($r) => $r->performer->name ?? '-')
                 ->addColumn('date', fn($r) => $r->occurred_at ? $r->occurred_at->format('M d, Y H:i') : '-')
@@ -275,7 +252,12 @@ class InventoryController extends Controller
 
         // One-time flash data for breadcrumbs or context if needed?
         
+        // Audit Trail Count
+        $movementCount = InventoryMovement::where('product_variant_id', $variant->id)
+            ->where('company_id', $company->id)
+            ->count();
+        
         // Pass to view
-        return view('theme.adminlte.inventory.variant_details', compact('variant', 'locations', 'balances'));
+        return view('theme.adminlte.inventory.variant_details', compact('variant', 'locations', 'balances', 'movementCount'));
     }
 }

@@ -58,6 +58,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('companies', CompanyController::class)->except(['destroy']);
         Route::get('companies/load/stats', [CompanyController::class, 'stats'])->name('companies.stats');
 
+        Route::resource('currencies', \App\Http\Controllers\Admin\Settings\CurrencyController::class)->except(['destroy']);
+        Route::resource('payment-terms', \App\Http\Controllers\Admin\Settings\PaymentTermController::class)->except(['destroy']);
+
         Route::resource('users', UserController::class)->except(['destroy'])->names('users');
 
         Route::resource('modules', ModuleController::class)->except(['destroy']);

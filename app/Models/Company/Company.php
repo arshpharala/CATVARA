@@ -45,4 +45,22 @@ class Company extends Model
     {
         return $this->hasMany(Role::class);
     }
+
+    public function baseCurrency()
+    {
+        return $this->belongsTo(\App\Models\Pricing\Currency::class, 'base_currency_id');
+    }
+
+    public function exchangeRates()
+    {
+        return $this->hasMany(\App\Models\Pricing\ExchangeRate::class);
+    }
+
+    public function paymentTerms()
+    {
+        return $this->belongsToMany(
+            \App\Models\Accounting\PaymentTerm::class,
+            'company_payment_terms'
+        )->withPivot('is_default')->withTimestamps();
+    }
 }

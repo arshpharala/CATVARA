@@ -111,7 +111,7 @@
           @forelse($recentTransfers as $transfer)
             <tr>
               <td><a
-                  href="{{ company_route('company.inventory.transfers.show', $transfer) }}">{{ $transfer->reference }}</a>
+                  href="{{ company_route('company.inventory.transfers.show', ['transfer' => $transfer]) }}">{{ $transfer->transfer_no }}</a>
               </td>
               <td>{{ $transfer->fromLocation->locatable->name ?? '-' }}</td>
               <td>{{ $transfer->toLocation->locatable->name ?? '-' }}</td>

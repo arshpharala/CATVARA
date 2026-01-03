@@ -104,6 +104,7 @@ class InventoryPostingService
                 'reference_id' => $data['reference_id'] ?? null,
                 'performed_by' => $data['performed_by'] ?? null,
                 'idempotency_key' => $data['idempotency_key'] ?? null,
+                'unit_cost' => $data['unit_cost'] ?? 0,
                 'occurred_at' => $data['occurred_at'] ?? Carbon::now(),
                 'posted_at' => Carbon::now(),
             ]);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company\Company;
 use App\Models\Inventory\InventoryReason;
 use Illuminate\Http\Request;
+use App\Http\Requests;
 
 class InventoryReasonController extends Controller
 {
@@ -20,14 +21,8 @@ class InventoryReasonController extends Controller
         return view('theme.adminlte.inventory.reasons.create');
     }
 
-    public function store(Request $request)
+    public function store(Requests\Inventory\StoreInventoryReasonRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50',
-            'type' => 'required|in:in,out', // Map to is_increase
-        ]);
-
         $reason = new InventoryReason();
         $reason->company_id = $request->company->id;
         $reason->name = $request->name;
@@ -48,17 +43,11 @@ class InventoryReasonController extends Controller
         return view('theme.adminlte.inventory.reasons.edit', compact('reason'));
     }
 
-    public function update(Request $request, Company $company, InventoryReason $reason)
+    public function update(Requests\Inventory\UpdateInventoryReasonRequest $request, Company $company, InventoryReason $reason)
     {
         if ($reason->company_id !== $company->id) {
             abort(403);
         }
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50',
-            'type' => 'required|in:in,out',
-        ]);
 
         $reason->name = $request->name;
         $reason->code = strtoupper($request->code);

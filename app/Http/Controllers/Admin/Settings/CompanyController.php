@@ -239,10 +239,12 @@ class CompanyController extends Controller
      */
     public function edit(string $id)
     {
-        $company = Company::with('detail')->findOrFail($id);
+        $company = Company::with(['detail', 'baseCurrency', 'paymentTerms'])->findOrFail($id);
         $statuses = CompanyStatus::query()->orderBy('name')->get();
+        $currencies = \App\Models\Pricing\Currency::where('is_active', true)->get();
+        $paymentTerms = \App\Models\Accounting\PaymentTerm::where('is_active', true)->get();
 
-        return view('theme.adminlte.settings.companies.edit', compact('company', 'statuses'));
+        return view('theme.adminlte.settings.companies.edit', compact('company', 'statuses', 'currencies', 'paymentTerms'));
     }
 
     /**
@@ -276,6 +278,10 @@ class CompanyController extends Controller
                 'website_url' => $data['website_url'] ?? null,
                 'company_status_id' => $data['company_status_id'],
                 'logo' => $logoPath,
+                // Only update base currency if it's currently NULL
+                'base_currency_id' => is_null($company->base_currency_id) && isset($data['base_currency_id']) 
+                                        ? $data['base_currency_id'] 
+                                        : $company->base_currency_id,
             ]);
 
             CompanyDetail::updateOrCreate(
@@ -289,6 +295,13 @@ class CompanyController extends Controller
                     'tax_number'      => $data['tax_number'] ?? null,
                 ]
             );
+
+            // Sync Payment Terms
+            if (isset($data['payment_terms'])) {
+                // If we had a default term, we would pivot that here.
+                // For now just basic sync.
+                $company->paymentTerms()->sync($data['payment_terms']);
+            }
 
             DB::commit();
 

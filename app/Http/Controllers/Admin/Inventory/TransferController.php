@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Admin\Inventory;
 
 use App\Http\Controllers\Controller;
 use App\Models\Catalog\ProductVariant;
+use App\Models\Company\Company;
 use App\Models\Inventory\InventoryLocation;
 use App\Models\Inventory\InventoryTransfer;
 use App\Models\Inventory\InventoryTransferItem;
 use App\Models\Inventory\InventoryTransferStatus;
 use App\Services\Inventory\InventoryTransferService;
 use Illuminate\Http\Request;
+use App\Http\Requests;
 use Illuminate\Support\Str;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -72,25 +74,17 @@ class TransferController extends Controller
     /**
      * Store new transfer.
      */
-    public function store(Request $request)
+    public function store(Requests\Inventory\StoreTransferRequest $request)
     {
-        $request->validate([
-            'from_location_id' => 'required|exists:inventory_locations,id',
-            'to_location_id' => 'required|exists:inventory_locations,id|different:from_location_id',
-            'items' => 'required|array|min:1',
-            'items.*.variant_id' => 'required|exists:product_variants,id',
-            'items.*.quantity' => 'required|numeric|min:0.01',
-        ]);
-
-        $draftStatus = InventoryTransferStatus::where('code', 'DRAFT')->first();
+        $draftStatus = InventoryTransferStatus::where('code', 'DRAFT')->firstOrFail();
 
         $transfer = InventoryTransfer::create([
             'uuid' => Str::uuid(),
             'company_id' => $request->company->id,
-            'reference' => 'TRF-'.strtoupper(Str::random(8)),
-            'from_inventory_location_id' => $request->from_location_id,
-            'to_inventory_location_id' => $request->to_location_id,
-            'inventory_transfer_status_id' => $draftStatus->id,
+            'transfer_no' => 'TRF-'.strtoupper(Str::random(8)),
+            'from_location_id' => $request->from_location_id,
+            'to_location_id' => $request->to_location_id,
+            'status_id' => $draftStatus->id,
             'created_by' => auth()->id(),
             'notes' => $request->notes,
         ]);
@@ -99,20 +93,19 @@ class TransferController extends Controller
             InventoryTransferItem::create([
                 'inventory_transfer_id' => $transfer->id,
                 'product_variant_id' => $item['variant_id'],
-                'quantity_requested' => $item['quantity'],
-                'quantity_shipped' => 0,
-                'quantity_received' => 0,
+                'quantity' => $item['quantity'],
+                'received_quantity' => 0,
             ]);
         }
 
-        return redirect(company_route('company.inventory.transfers.show', $transfer))
+        return redirect(company_route('company.inventory.transfers.show', ['transfer' => $transfer]))
             ->with('success', 'Transfer created successfully.');
     }
 
     /**
      * Show transfer details.
      */
-    public function show(Request $request, $id)
+    public function show(Request $request, Company $company, $id)
     {
         $transfer = InventoryTransfer::where('company_id', $request->company->id)
             ->with(['fromLocation.locatable', 'toLocation.locatable', 'status', 'items.variant.product'])
@@ -124,10 +117,10 @@ class TransferController extends Controller
     /**
      * Approve transfer.
      */
-    public function approve(Request $request, $id)
+    public function approve(Request $request, Company $company, $id)
     {
         $transfer = InventoryTransfer::where('company_id', $request->company->id)->findOrFail($id);
-        $this->transferService->approve($transfer);
+        $this->transferService->approve($transfer, auth()->id());
 
         return back()->with('success', 'Transfer approved.');
     }
@@ -135,7 +128,7 @@ class TransferController extends Controller
     /**
      * Ship transfer.
      */
-    public function ship(Request $request, $id)
+    public function ship(Request $request, Company $company, $id)
     {
         $transfer = InventoryTransfer::where('company_id', $request->company->id)->findOrFail($id);
         $this->transferService->ship($transfer, auth()->id());
@@ -146,14 +139,14 @@ class TransferController extends Controller
     /**
      * Receive transfer.
      */
-    public function receive(Request $request, $id)
+    public function receive(Request $request, Company $company, $id)
     {
         $transfer = InventoryTransfer::where('company_id', $request->company->id)->findOrFail($id);
 
         // For full receive, pass all items as received
         $receivedItems = [];
         foreach ($transfer->items as $item) {
-            $receivedItems[$item->id] = $item->quantity_shipped;
+            $receivedItems[$item->product_variant_id] = $item->quantity;
         }
 
         $this->transferService->receive($transfer, $receivedItems, auth()->id());

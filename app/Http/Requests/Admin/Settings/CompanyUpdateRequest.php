@@ -45,6 +45,14 @@ class CompanyUpdateRequest extends FormRequest
             'quote_postfix' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:2000'],
             'tax_number' => ['nullable', 'string', 'max:100'],
+
+            // Base Currency (only editable if not set - handled in controller but valid here)
+            'base_currency_id' => ['nullable', 'exists:currencies,id'],
+
+            // Payment Terms
+            'payment_terms' => ['nullable', 'array'],
+            'payment_terms.*' => ['exists:payment_terms,id'],
+            'default_payment_term_id' => ['nullable', 'exists:payment_terms,id'], // If we want to set a default on pivot
         ];
     }
 

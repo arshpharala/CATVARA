@@ -96,29 +96,33 @@
         </div>
         <div class="card-body">
           @if ($transfer->status->code == 'DRAFT')
-            <form action="{{ company_route('company.inventory.transfers.approve', $transfer) }}" method="POST">
+            <form action="{{ company_route('company.inventory.transfers.approve', ['transfer' => $transfer]) }}"
+              method="POST">
               @csrf
               <button type="submit" class="btn btn-primary btn-block">
                 <i class="fas fa-check"></i> Approve Transfer
               </button>
             </form>
-          @elseif($transfer->status->code == 'APPROVED')
-            <form action="{{ company_route('company.inventory.transfers.ship', $transfer) }}" method="POST">
+          @endif
+          @if ($transfer->status->code == 'APPROVED')
+            <form action="{{ company_route('company.inventory.transfers.ship', ['transfer' => $transfer]) }}"
+              method="POST">
               @csrf
-              <button type="submit" class="btn btn-warning btn-block">
-                <i class="fas fa-truck"></i> Ship Transfer
+              <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-shipping-fast"></i> Ship Transfer
               </button>
             </form>
-            <small class="text-muted">This will deduct stock from source location.</small>
-          @elseif($transfer->status->code == 'SHIPPED')
-            <form action="{{ company_route('company.inventory.transfers.receive', $transfer) }}" method="POST">
+          @endif
+          @if ($transfer->status->code == 'SHIPPED')
+            <form action="{{ company_route('company.inventory.transfers.receive', ['transfer' => $transfer]) }}"
+              method="POST">
               @csrf
-              <button type="submit" class="btn btn-success btn-block">
-                <i class="fas fa-box-open"></i> Mark as Received
+              <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-box-open"></i> Receive Transfer
               </button>
             </form>
-            <small class="text-muted">This will add stock to destination location.</small>
-          @elseif($transfer->status->code == 'CLOSED' || $transfer->status->code == 'RECEIVED')
+          @endif
+          @if ($transfer->status->code == 'CLOSED' || $transfer->status->code == 'RECEIVED')
             <div class="alert alert-success mb-0">
               <i class="fas fa-check-circle"></i> Transfer Completed
             </div>

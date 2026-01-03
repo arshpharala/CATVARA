@@ -7,6 +7,7 @@ use App\Models\Company\Company;
 use App\Models\Inventory\InventoryLocation;
 use App\Models\Inventory\Store;
 use Illuminate\Http\Request;
+use App\Http\Requests;
 use Illuminate\Support\Str;
 
 class StoreController extends Controller
@@ -22,15 +23,8 @@ class StoreController extends Controller
         return view('theme.adminlte.inventory.stores.create');
     }
 
-    public function store(Request $request)
+    public function store(Requests\Inventory\StoreStoreRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:50',
-            'address' => 'nullable|string',
-            'phone' => 'nullable|string',
-        ]);
-
         $store = new Store();
         $store->uuid = Str::uuid();
         $store->company_id = $request->company->id;
@@ -64,18 +58,11 @@ class StoreController extends Controller
         return view('theme.adminlte.inventory.stores.edit', compact('store'));
     }
 
-    public function update(Request $request, Company $company, Store $store)
+    public function update(Requests\Inventory\UpdateStoreRequest $request, Company $company, Store $store)
     {
         if ($store->company_id !== $company->id) {
             abort(403);
         }
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:50',
-            'address' => 'nullable|string',
-            'phone' => 'nullable|string',
-        ]);
 
         $store->name = $request->name;
         $store->code = $request->code;

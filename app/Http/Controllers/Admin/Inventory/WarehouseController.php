@@ -7,6 +7,7 @@ use App\Models\Company\Company;
 use App\Models\Inventory\InventoryLocation;
 use App\Models\Inventory\Warehouse;
 use Illuminate\Http\Request;
+use App\Http\Requests;
 use Illuminate\Support\Str;
 
 class WarehouseController extends Controller
@@ -22,15 +23,8 @@ class WarehouseController extends Controller
         return view('theme.adminlte.inventory.warehouses.create');
     }
 
-    public function store(Request $request)
+    public function store(Requests\Inventory\StoreWarehouseRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:50',
-            'address' => 'nullable|string',
-            'phone' => 'nullable|string',
-        ]);
-
         $warehouse = new Warehouse();
         $warehouse->uuid = Str::uuid();
         $warehouse->company_id = $request->company->id;
@@ -63,18 +57,11 @@ class WarehouseController extends Controller
         return view('theme.adminlte.inventory.warehouses.edit', compact('warehouse'));
     }
 
-    public function update(Request $request, Company $company, Warehouse $warehouse)
+    public function update(Requests\Inventory\UpdateWarehouseRequest $request, Company $company, Warehouse $warehouse)
     {
         if ($warehouse->company_id !== $company->id) {
             abort(403);
         }
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:50',
-            'address' => 'nullable|string',
-            'phone' => 'nullable|string',
-        ]);
 
         $warehouse->name = $request->name;
         $warehouse->code = $request->code;
