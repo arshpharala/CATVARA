@@ -371,4 +371,138 @@ class QuoteController extends Controller
             throw $e;
         }
     }
+
+    /**
+     * Send quote to customer (change status to SENT)
+     */
+    public function send(Request $request, Company $company, string $id)
+    {
+        $quote = Quote::where('company_id', $company->id)->findOrFail($id);
+
+        $sentStatus = QuoteStatus::where('code', 'SENT')->first();
+        if (!$sentStatus) {
+            return back()->with('error', 'SENT status not configured.');
+        }
+
+        // Can only send from DRAFT
+        if ($quote->status && $quote->status->code !== 'DRAFT') {
+            return back()->with('error', 'Only draft quotes can be sent.');
+        }
+
+        $quote->update([
+            'status_id' => $sentStatus->id,
+            'sent_at' => now(),
+        ]);
+
+        if ($request->ajax()) {
+            return response()->json(['message' => 'Quote sent successfully.']);
+        }
+
+        return back()->with('success', 'Quote sent successfully.');
+    }
+
+    /**
+     * Accept quote (change status to ACCEPTED)
+     */
+    public function accept(Request $request, Company $company, string $id)
+    {
+        $quote = Quote::where('company_id', $company->id)->findOrFail($id);
+
+        $acceptedStatus = QuoteStatus::where('code', 'ACCEPTED')->first();
+        if (!$acceptedStatus) {
+            return back()->with('error', 'ACCEPTED status not configured.');
+        }
+
+        // Can only accept from SENT
+        if ($quote->status && $quote->status->code !== 'SENT') {
+            return back()->with('error', 'Only sent quotes can be accepted.');
+        }
+
+        $quote->update([
+            'status_id' => $acceptedStatus->id,
+            'accepted_at' => now(),
+        ]);
+
+        if ($request->ajax()) {
+            return response()->json(['message' => 'Quote accepted successfully.']);
+        }
+
+        return back()->with('success', 'Quote accepted successfully.');
+    }
+
+    /**
+     * Cancel quote (change status to CANCELLED)
+     */
+    public function cancel(Request $request, Company $company, string $id)
+    {
+        $quote = Quote::where('company_id', $company->id)->findOrFail($id);
+
+        $cancelledStatus = QuoteStatus::where('code', 'CANCELLED')->first();
+        if (!$cancelledStatus) {
+            return back()->with('error', 'CANCELLED status not configured.');
+        }
+
+        // Cannot cancel finalized quotes
+        if ($quote->status && $quote->status->is_final) {
+            return back()->with('error', 'This quote cannot be cancelled.');
+        }
+
+        $quote->update([
+            'status_id' => $cancelledStatus->id,
+        ]);
+
+        if ($request->ajax()) {
+            return response()->json(['message' => 'Quote cancelled successfully.']);
+        }
+
+        return back()->with('success', 'Quote cancelled successfully.');
+    }
+
+    /**
+     * Convert accepted quote to order
+     */
+    public function convertToOrder(Request $request, Company $company, string $id)
+    {
+        $quote = Quote::where('company_id', $company->id)
+            ->with('items')
+            ->findOrFail($id);
+
+        // Can only convert ACCEPTED quotes
+        if ($quote->status && $quote->status->code !== 'ACCEPTED') {
+            if ($request->ajax()) {
+                return response()->json(['message' => 'Only accepted quotes can be converted to orders.'], 422);
+            }
+            return back()->with('error', 'Only accepted quotes can be converted to orders.');
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $orderService = app(\App\Services\Sales\OrderService::class);
+
+            $order = $orderService->createFromQuote($quote);
+
+            DB::commit();
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'message' => 'Quote converted to order successfully.',
+                    'redirect' => route('orders.show', [$company->uuid, $order->id]),
+                ]);
+            }
+
+            return redirect()
+                ->route('orders.show', [$company->uuid, $order->id])
+                ->with('success', 'Quote converted to order successfully.');
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            if ($request->ajax()) {
+                return response()->json(['message' => $e->getMessage()], 500);
+            }
+
+            return back()->with('error', $e->getMessage());
+        }
+    }
 }

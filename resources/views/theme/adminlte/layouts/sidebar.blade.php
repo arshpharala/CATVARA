@@ -15,10 +15,10 @@
 
   // Module visibility flags (only show if at least one route exists)
   $hasSales =
-      Route::has('company.orders.index') ||
-      Route::has('company.quotes.index') ||
-      Route::has('company.invoices.index') ||
-      Route::has('company.credit-notes.index');
+      Route::has('orders.index') ||
+      Route::has('quotes.index') ||
+      Route::has('invoices.index') ||
+      Route::has('credit-notes.index');
   $hasPos = Route::has('company.pos.orders.index') || Route::has('company.pos.returns.index');
   $hasWeb = Route::has('company.web.orders.index');
   $hasAccounting =
@@ -30,7 +30,7 @@
       Route::has('company.catalog.categories.index') ||
       Route::has('company.catalog.products.index') ||
       Route::has('company.stock-movements.index');
-  $hasCustomers = Route::has('company.customers.index') || Route::has('company.customer-balances.index');
+  $hasCustomers = Route::has('customers.index') || Route::has('customer-balances.index');
   $hasReports =
       Route::has('company.reports.sales') ||
       Route::has('company.reports.payments') ||
@@ -347,7 +347,8 @@
               </a>
               <ul class="nav nav-treeview">
                 @if (Route::has('customers.index'))
-                  <li class="nav-item"><a href="{{ company_route('customers.index') }}" class="nav-link"><i
+                  <li class="nav-item"><a href="{{ company_route('customers.index') }}"
+                      class="nav-link {{ $isActive('customers.*') ? 'active' : '' }}"><i
                         class="far fa-circle nav-icon"></i>
                       <p>Customers</p>
                     </a></li>

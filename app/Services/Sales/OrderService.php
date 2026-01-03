@@ -5,7 +5,8 @@ namespace App\Services\Sales;
 use App\Models\Sales\{
     Order,
     OrderItem,
-    OrderStatus
+    OrderStatus,
+    Quote
 };
 use App\Services\Common\DocumentNumberService;
 use Illuminate\Support\Str;
@@ -55,6 +56,56 @@ class OrderService
 
             'created_by' => $data['user_id'] ?? null,
         ]);
+    }
+
+    /**
+     * Create order from an accepted Quote
+     */
+    public function createFromQuote(Quote $quote): Order
+    {
+        return DB::transaction(function () use ($quote) {
+
+            $quote->loadMissing('items');
+
+            // Create the order
+            $order = $this->create([
+                'company_id' => $quote->company_id,
+                'customer_id' => $quote->customer_id,
+                'source' => 'QUOTE',
+                'source_id' => $quote->id,
+                'currency_id' => $quote->currency_id,
+                'payment_term_id' => $quote->payment_term_id,
+                'payment_term_name' => $quote->payment_term_name,
+                'payment_due_days' => $quote->payment_due_days,
+                'user_id' => auth()->id(),
+            ]);
+
+            // Copy quote items to order items
+            foreach ($quote->items as $quoteItem) {
+                $this->addItem($order, [
+                    'product_variant_id' => $quoteItem->product_variant_id,
+                    'product_name' => $quoteItem->product_name,
+                    'variant_description' => $quoteItem->variant_description,
+                    'unit_price' => $quoteItem->unit_price,
+                    'quantity' => $quoteItem->quantity,
+                    'tax_amount' => $quoteItem->tax_amount,
+                ]);
+            }
+
+            // Calculate totals
+            $order->load('items');
+            $subtotal = $order->items->sum('line_total');
+            $taxTotal = $order->items->sum('tax_amount');
+            $grandTotal = bcadd($subtotal, $taxTotal, 6);
+
+            $order->update([
+                'subtotal' => $subtotal,
+                'tax_total' => $taxTotal,
+                'grand_total' => $grandTotal,
+            ]);
+
+            return $order;
+        });
     }
 
     public function addItem(Order $order, array $item): OrderItem

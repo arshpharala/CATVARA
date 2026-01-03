@@ -148,12 +148,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             });
 
             /**
-             * Future company modules (add later):
-             * customers, inventory, pos, orders, reports...
-             *
-             * Example:
-             * Route::resource('customers', CustomerController::class)->names('customers');
+             * Customers Management
              */
+            Route::resource('customers', \App\Http\Controllers\Admin\CustomerController::class);
+            Route::get('customers/load/stats', [\App\Http\Controllers\Admin\CustomerController::class, 'stats'])->name('customers.stats');
+
+            /**
+             * Quotes Management
+             */
+            Route::resource('quotes', \App\Http\Controllers\Admin\QuoteController::class);
+            Route::get('quotes/load/stats', [\App\Http\Controllers\Admin\QuoteController::class, 'stats'])->name('quotes.stats');
+            Route::post('quotes/{quote}/send', [\App\Http\Controllers\Admin\QuoteController::class, 'send'])->name('quotes.send');
+            Route::post('quotes/{quote}/accept', [\App\Http\Controllers\Admin\QuoteController::class, 'accept'])->name('quotes.accept');
+            Route::post('quotes/{quote}/cancel', [\App\Http\Controllers\Admin\QuoteController::class, 'cancel'])->name('quotes.cancel');
+            Route::post('quotes/{quote}/convert-to-order', [\App\Http\Controllers\Admin\QuoteController::class, 'convertToOrder'])->name('quotes.convertToOrder');
         });
 });
 
